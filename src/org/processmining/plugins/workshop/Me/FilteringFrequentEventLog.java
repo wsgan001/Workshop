@@ -1,9 +1,11 @@
 package org.processmining.plugins.workshop.Me;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.commons.digester.plugins.PluginContext;
 import org.deckfour.uitopia.api.event.TaskListener.InteractionResult;
 import org.deckfour.xes.classification.XEventClass;
 import org.deckfour.xes.info.XLogInfo;
@@ -15,6 +17,7 @@ import org.deckfour.xes.model.XTrace;
 import org.deckfour.xes.model.impl.XLogImpl;
 import org.processmining.contexts.uitopia.UIPluginContext;
 import org.processmining.contexts.uitopia.annotations.UITopiaVariant;
+import org.processmining.framework.connections.ConnectionCannotBeObtained;
 import org.processmining.framework.plugin.annotations.Plugin;
 import org.processmining.framework.plugin.annotations.PluginVariant;
 
@@ -37,7 +40,7 @@ import org.processmining.framework.plugin.annotations.PluginVariant;
 		parameterLabels = {"Event log"},
 		returnLabels = { "filtered_log"},
 		returnTypes = {XLog.class},
-		userAccessible = true,
+		userAccessible = false,
 		help = "Plugin for filtering frequent event log")
 public class FilteringFrequentEventLog {
 	
@@ -48,12 +51,36 @@ public class FilteringFrequentEventLog {
 	 * 
 	 * we filter the data according to different filtering criterion. 
 	 */
+	@UITopiaVariant(affiliation = "RWTH Aachen", author = "Kefang", email = "***@gmail.com")
+	@PluginVariant(variantLabel = "Filtering an event log by Choices with Parameter",  requiredParameterLabels = { 0, 1})
+	public XLog filteringEventLogParameter(PluginContext context, XLog log, FilteringParameters parameters) {
+		
+		//check if there is already such connection, if so, we return directly the value
+		Collection<FilteringConnection> connections;
+		try {
+			// how to seperate the context from UI and normal Plugin ?? 
+			// it seems that we firstly get parameters like configuration from UIPluginContext 
+			// then we give it to PluginContext, there we test if the connection already exists.
+			connections = context.getConnectionManager().getConnections(FilteringConnection.class, context, log);
+			for (FilteringConnection connection : connections) {
+				if (connection.getObjectWithRole(FilteringConnection.LOG).equals(log)
+						&& connection.getParameters().equals(parameters)) {
+					return (XLog) connection.getObjectWithRole(FilteringConnection.FILTERED_Log);
+				}
+			}
+		} catch (ConnectionCannotBeObtained e) {
+		}
+		
+		XLog filtered_log = filtering(context, log, parameters);
+		context.addConnection(new FilteringConnection(log, filtered_log, parameters));
+		return filtered_log;
+	}
 	
 	@UITopiaVariant(affiliation = "RWTH Aachen", author = "Kefang", email = "***@gmail.com")
-	@PluginVariant(variantLabel = "Filtering an event log by Choices",  requiredParameterLabels = { 0})
-	public XLog FilteringEventLog(UIPluginContext context, XLog log) {
-		// we could do test on parameters and see if it is used to filter events or traces
+	@PluginVariant(variantLabel = "Filtering an event log by Choices with user input",  requiredParameterLabels = { 0})
+	public XLog filteringEventLogDefault(UIPluginContext context, XLog log) {
 		
+		// we could do test on parameters and see if it is used to filter events or traces
 		FilteringParameters parameters = new FilteringParameters();
 		FilteringDialog dialog = new FilteringDialog(parameters);
 		
@@ -63,6 +90,10 @@ public class FilteringFrequentEventLog {
 		if (result != InteractionResult.FINISHED) {
 	    		return null;
 		}
+		return filteringEventLogParameter(context, log, parameters);
+	}
+	
+	public XLog filtering(PluginContext context, XLog log, FilteringParameters parameters) {
 		// parameters.setFilterType("Choose Top N Vairants");
 		// System.out.println(parameters.getFilterType());
 		// System.out.println(parameters.getThreshold());
@@ -83,6 +114,7 @@ public class FilteringFrequentEventLog {
 		}
 		return filtered_log;
 	}
+	
 	/**
 	 * Filter event log and keep the top ones
 	 * @param log
