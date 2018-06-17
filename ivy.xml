@@ -10,6 +10,11 @@
 	</configurations>  
     <dependencies defaultconf="default">
        <dependency org="prom" name="ProM-Plugins" rev="latest" changing="true" transitive="true" />
+       <dependency org="prom" name="ApacheUtils" rev="latest" changing="true" transitive="true" />
+       <dependency org="prom" name="BasicUtils" rev="latest" changing="true" transitive="true" />
+    	<dependency org="prom" name="GraphViz" rev="latest" changing="true" transitive="true" />
        <dependency org="prom" name="Log" rev="latest" changing="true" transitive="true" />
+       <dependency org="prom" name="AlphaMiner" rev="latest" changing="true" transitive="true" />
+       
     </dependencies>
 </ivy-module>
