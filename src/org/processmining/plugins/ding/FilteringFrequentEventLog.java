@@ -189,24 +189,43 @@ public class FilteringFrequentEventLog {
 	private XLog filterCumulativeVariants( XLog log, List<TraceVariant> variants, double percentage) {
 		
 		XLogInfo info  = XLogInfoFactory.createLogInfo(log);
+		// we allow negative and positive threshold
 		int threshold = (int) (info.getNumberOfTraces() * percentage);
 		
 		// This need some cumulation on the counts columns and we need to give it
 		// we need to sort variants at first 
 		Collections.sort(variants, TraceVariant.COMPARE_BY_COUNT);
+		
+		int idx = 0, sum=0;
+		List<TraceVariant> keptVariants = null; 
+		if(threshold > 0) {
+			// we choose the top ones
+			idx = variants.size() - 1;
+			sum = variants.get(idx).getCount();
+
+			while(sum < threshold && idx >0 ) {
+				idx -= 1;
+				sum += variants.get(idx).getCount();
+			}
+			// now it's right position and we get the keptVariants, don't know if we need to use idx -1 or not
+			keptVariants = variants.subList(idx, variants.size());
+			
+		}else if(threshold < 0) {
+			// we choose the lowest ones , but need testing to find the right format
+			idx = 0;
+			sum = variants.get(idx).getCount();
+			
+
+			while(sum < -threshold && idx < variants.size()-1) {
+				idx += 1;
+				sum += variants.get(idx).getCount();
+			}
+			// now it's right position and we get the keptVariants, don't know if we need to use idx -1 or not
+			keptVariants = variants.subList(0, idx);
+		}
 		// after this we get the variants which is in an ascending order.  
 		// from last element we add it up to i and when the sum(i) > threshold and sum(i-1) < threshold,
-		// we choose until i-1
-		int idx = variants.size() - 1;
-		int sum = variants.get(idx).getCount();
-		
-		while(sum < threshold && idx >0 ) {
-			idx -= 1;
-			sum += variants.get(idx).getCount();
-		}
-		// now it's right position and we get the keptVariants, don't know if we need to use idx -1 or not
-		List<TraceVariant> keptVariants = variants.subList(idx, variants.size());
-		
+		// we choose until i-1		
 		XLog nlog = filterByTrace(log, keptVariants);
 		return nlog;
 	}

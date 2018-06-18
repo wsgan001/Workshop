@@ -18,6 +18,7 @@ import com.fluxicon.slickerbox.factory.SlickerFactory;
 
 import info.clearthought.layout.TableLayoutConstants;
 
+
 public class SaveFilePanel extends JPanel {
 
 		// create one sliker to choose if save the filted log, maybe in the sense of ProM?? ... 
@@ -37,7 +38,7 @@ public class SaveFilePanel extends JPanel {
 					{ 80, 30, 30, 30, 30, 30, 30, 60, TableLayoutConstants.FILL } };
 			
 			// basicPanel.setLayout(new TableLayout(sizeBasic));
-			basicPanel.setLayout(new GridLayout(3, 3));
+			basicPanel.setLayout(new GridLayout(3, 1));
 			basicPanel.setBackground(new Color(200, 200, 200));
 			
 			SlickerFactory slickerFactory = SlickerFactory.instance();
