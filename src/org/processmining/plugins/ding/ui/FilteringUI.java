@@ -30,10 +30,10 @@ public class FilteringUI {
 		// and we need to save it when filtered log execute, and maybe choose one position of it
 		// it could be used as a parameter, so we don't mind it , one thing, maybe 
 		// do we need to output directly or we can wait?? 
-		SaveFileStep saveFileStep = new SaveFileStep(parameters);
+		// SaveFileStep saveFileStep = new SaveFileStep(parameters);
 		listSteps = new ArrayList<ProMWizardStep<FilteringParameters>>();
 		listSteps.add(filteringParameterStep);
-		listSteps.add(saveFileStep);
+		// listSteps.add(saveFileStep);
 		ListWizard<FilteringParameters> wizard = new ListWizard<FilteringParameters>(listSteps);
 		
 		

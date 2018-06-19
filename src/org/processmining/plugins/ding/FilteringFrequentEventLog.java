@@ -1,6 +1,5 @@
 package org.processmining.plugins.ding;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -50,7 +49,7 @@ import org.processmining.plugins.ding.ui.FilteringUI;
 @Plugin(
 		name = "Filtering Frequent Event log",
 		parameterLabels = {"Event log"}, // ,"FilteringParameters"
-		returnLabels = { "Petrinet", "Marking", "filtered_log"},
+		returnLabels = { "Petrinet", "Marking", "Filtered_log"},
 		returnTypes = {Petrinet.class, Marking.class, XLog.class},
 		userAccessible = true,
 		help = "Plugin for filtering frequent event log")
@@ -80,7 +79,8 @@ public class FilteringFrequentEventLog {
 		}
 		// but just to keep it, both for filtered data, and then output the filtered log 
 		// the return value is a problem here , it can't accept null values..
-		return filteringEventLogParameter(context, log, parameters);
+		Object[] results =  filteringEventLogParameter(context, log, parameters);
+		return results; 
 	}
 	
 
@@ -105,6 +105,7 @@ public class FilteringFrequentEventLog {
 		
 		XLog filtered_log = filtering(context, log, parameters);
 		// save filtered log
+		/** First way to use one specific export interface
 		if(parameters.isSaveFile()) {
 			try {
 				EventLogUtilities.exportSingleLog(filtered_log, parameters.getSaveFileName());
@@ -113,7 +114,10 @@ public class FilteringFrequentEventLog {
 				e.printStackTrace();
 			}
 		}
-		
+		// second method to use context embedded in ProM
+		*/
+		// context.getProvidedObjectManager().createProvidedObject("Filtered Log", filtered_log, XLog.class, context);
+		// third method, do nothing , but change to ALl and get filtered log
 		Petrinet net =null; 
 		Marking marking = null;
 		if(!parameters.isNoPetrinet()) {
@@ -124,7 +128,7 @@ public class FilteringFrequentEventLog {
 			
 			net = (Petrinet)markedNet[0];
 			marking = (Marking)markedNet[1];
-			
+			// 
 		}
 		// here we need more thing to say..
 		if (context.getProgress().isCancelled()) {
