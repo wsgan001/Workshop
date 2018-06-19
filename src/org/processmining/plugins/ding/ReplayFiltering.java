@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.deckfour.xes.classification.XEventClass;
 import org.deckfour.xes.classification.XEventClasses;
@@ -56,7 +57,7 @@ public class ReplayFiltering {
 	
 	@UITopiaVariant(affiliation = UITopiaVariant.EHV, author = "Kefang Ding", email = "ding@rwth-aachen.de")
 	@PluginVariant(variantLabel = "From Petri net and Event Log", requiredParameterLabels = { 0, 1 })
-	public Petrinet filteringLog(final UIPluginContext context, Petrinet net, XLog log)
+	public Petrinet filteringByReplay(final UIPluginContext context, Petrinet net, XLog log)
 			throws ConnectionCannotBeObtained {
 		
 		// double percentage = 0.1; // places over percentage could be kept
@@ -66,95 +67,180 @@ public class ReplayFiltering {
 		FilteringParameters params = ProMWizardDisplay.show(context, listWizard, new FilteringParameters());
 		
 		if (params != null) {
-			return replayLog(context, net, log, params); 
+			return filteringNet(context, net, log, params); 
 		}else {
 			System.out.println("No parameters are set... So return original");
 			return net;
 		}
 	}
-
-	private Petrinet replayLog(UIPluginContext context, Petrinet net, XLog log, FilteringParameters params) {
-		// could we make it better, maybe an active sliderbar to control the petri net and change its form?? 
+    /**
+     * This method will count the frequency of Arcs of Petrinet, and delete them if they are smaller than threshold
+     * @param context
+     * @param net Petrinet
+     * @param log
+     * @param params  It has threshold used for filtering
+     * @return
+     */
+	private Petrinet filteringNet(UIPluginContext context, Petrinet net, XLog log, FilteringParameters params) {
+		Set<PetrinetNode> nodes = net.getNodes();
+		// first we get the variants from Event log
 		XLogInfo info  = XLogInfoFactory.createLogInfo(log); //
-
-		Collection<Place> places = net.getPlaces();
-		// create one map to store its value and then to init it by method
-		Map<Place, Integer> placeFreq = initPlaceFreq(places); 
-      
+		
+		Set<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> arcs = net.getEdges();
+		Map<Arc, Integer> arcFreq = initArcsFreq(arcs); 
         XEventClasses eventClasses = info.getEventClasses();
-        // build A Map for Transition in net and the eventClasses
+        // should we hide it, then we don't need to see it so often?? 
         Map<XEventClass,Transition >  transMap = EventLogUtilities.getEventTransitionMap(eventClasses, net.getTransitions());
         
-        // it's like some basic information about the log , so we could put it into one class
-        // and use it from it 
         List<TraceVariant> variants =  EventLogUtilities.getTraceVariants(log);
         
+        // for each trace we count the freq of each Arcs, which means we need to build one freq for Arcs
         for(int i=0; i<variants.size(); i++) {	
-        	countPlaceVariant(variants.get(i), net,transMap, placeFreq);
+        	countArcsFreq(variants.get(i), net, transMap, arcFreq);
         }
-        
-        // create a new PetriNet
- 		// Petrinet nnet  = PetrinetFactory.newPetrinet("New Petrinet After Filtering"); // since Petrinet is one interface, so we can't create PatriNet directly from it
-        // because after clone,actually the places have already changed, so we can't remove it
- 		// like this. We need to compare them first and then remove it..
- 		// postprocess here needed: after remove places, there are actually 
- 		
- 		Petrinet nnet  = PetrinetFactory.clonePetrinet(net);
- 		Map<Place, Place> placeMap = EventLogUtilities.getPlaceMap(net.getPlaces(), nnet.getPlaces());
-		
- 		// filtering places
+		// after it, we compare them to threshold
         int threshold = (int) (info.getNumberOfTraces() * params.getThreshold()*0.01);
-        Iterator freqIter = placeFreq.entrySet().iterator();
+        
+        Petrinet nnet  = PetrinetFactory.clonePetrinet(net);
+ 		// from here we need to change it,the thing we need actully is Petrinet Edge and consider relation ship about 
+ 		// the Node and Edge to Event log
+ 		Map<Place, Place> placeMap = EventLogUtilities.getPlaceMap(net.getPlaces(), nnet.getPlaces());
+ 		// filtering arcs in the Petri net
+        Iterator freqIter = arcFreq.entrySet().iterator();
         while (freqIter.hasNext()) {
+        	// pair<Arc, count>
             Map.Entry pair = (Map.Entry)freqIter.next();
             if((Integer)(pair.getValue()) < threshold) {
-            	nnet.removePlace(placeMap.get((Place)pair.getKey()));
-
+            	// here we need to remove the edge from petri net and also transition, places
+            	nnet.removeEdge((PetrinetEdge<PetrinetNode, PetrinetNode>)pair.getKey());
+            	// nnet.removePlace(placeMap.get((Arc)pair.getKey()));
             }
         }
-		
+		// check the Petrinet and remove all isolate transitions and places
+        resetPetrinet(nnet);
 		return nnet;
 	}
-    private void countPlaceVariant(TraceVariant traceVariant, Petrinet net, Map<XEventClass, Transition> transMap, Map<Place, Integer> placeFreq) {
-    	// one problem is maybe about the end number, there is no freq for it  
-    	int curCount;
+	
+	private void resetPetrinet(Petrinet net) {
+		// check the Petrinet and remove all isolate transitions and places
+		Collection<PetrinetNode> nodes = net.getNodes();
+		PetrinetNode n;
+		Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> preset = null;
+		Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> postset = null;
+		// if nodes are isolate then remove it
+		Iterator<PetrinetNode> iter = nodes.iterator();
+		while(iter.hasNext()) {
+			n = iter.next();
+			preset = net.getInEdges(n);
+			postset = net.getOutEdges(n);
+			
+			if(preset == null && postset == null) {
+				net.removeNode(n);
+			}// some situation that we delete only one side ??? Not possible!!
+			// else if()
+		}
+	}
+	private Map<Arc, Integer> initArcsFreq(Set<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> arcs) {
+		// TODO Auto-generated method stub
+		Map<Arc, Integer> arcsFreq= new LinkedHashMap<Arc, Integer>();
+		Iterator iter = arcs.iterator();
+		while(iter.hasNext()) {
+			arcsFreq.put((Arc) iter.next(), 0);
+		}
+		return arcsFreq;
+	}
+	/**
+	 * for each trace, it get the Arcs frequency for it and store in the arcFreq. The method is : 
+	 *  -- we have trace sequence, 
+	 *  -- 
+	 * @param traceVariant
+	 * @param net
+	 * @param transMap
+	 * @param arcFreq
+	 */
+    private void countArcsFreq(TraceVariant traceVariant, Petrinet net, Map<XEventClass, Transition> transMap, Map<Arc, Integer> arcFreq) {
+    	// we need to get the start node and end node of a Petri net
+    	
+    	int curCount  = traceVariant.getCount();
     	List<Transition> seq = getTraceSeq(traceVariant, transMap);
     	Transition transition = null;
     	Arc arc = null;
     	Place place = null;
     	Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> preset = null;
+    	
+    	transition = seq.get(0);
+		// start position: 
+		Arc startarc = net.getArc(EventLogUtilities.getStartPlace(net), transition);
+		// add Freq to it 
+		arcFreq.replace(startarc, curCount + arcFreq.get(startarc));
+		
     	// deal with it until the last transiton, but we need to condiser once more?? Maybe? 
-		for(int i=0; i< seq.size(); i++) {
+		for(int i=1; i< seq.size(); i++) {
+			// we check from the second element in the sequence and then compare the elements at previous places
+			// one benefit maybe record if connections at one place is single ?? 
 			transition = seq.get(i);
-			preset = net.getInEdges(transition);
 			
+			preset = net.getInEdges(transition);
+			// we need to see two transitions together???  
 			for (PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode> edge : preset) {
+				// after we get the arc sets, it's all before one transition
+				// so we could add them directly
 				if (edge instanceof Arc) {
 					arc = (Arc) edge;
-					place = (Place) arc.getSource();
+					// get the prior place for transition
+					place = (Place) arc.getSource(); 
+					// places before preset are conditions for the later transition. It must happen!!
+					// check if this place in the preset places is also in the postset of previous transitions
+					// if(isInPath(transition))
 					
-					curCount = placeFreq.get(place);
-					curCount += traceVariant.getCount(); 
-					placeFreq.replace(place, curCount);		
+					for(int j=0;j<i;j++) {
+						Transition pretrans =  seq.get(j);
+						Arc prearc = getArc(net,pretrans, transition, place);
+						if(prearc != null) {
+							// if thers is one arc between those two transitions we add both counts on the path between this two arc
+							// and we need to get the arc of them both
+							arcFreq.replace(arc, curCount + arcFreq.get(arc));
+							arcFreq.replace(prearc, curCount + arcFreq.get(prearc));
+						}
+						
+					}
+					
 				}
 			}
 			
 		}
 		
-		// deal with the end transition and give end place count for it 
-		preset = net.getOutEdges(transition);
-		for (PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode> edge : preset) {
+		// deal with the end transition and also the start transition
+		// the end position get postset, but we also do it to link end position
+		// get Arc of it and end position
+		Arc endarc = net.getArc(transition, EventLogUtilities.getEndPlace(net));
+		// add arcFreq
+		arcFreq.replace(endarc, curCount + arcFreq.get(endarc));
+	}
+	
+	private Arc getArc(Petrinet net, Transition pretrans, Transition curtrans, Place place) {
+		// we have two transition and we want to see if there is one path between them. 
+		// one path, we mean A--> (P) ---> B
+		// but we return only the Arc before the Place
+		Arc arc = null;
+		Place p = null;
+		// we have already get the place before the current transition
+		// we need to check if all the postset places of pretrans has the same place
+		Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> postset = null;
+
+		postset = net.getOutEdges(curtrans);
+		for (PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode> edge : postset) {
 			if (edge instanceof Arc) {
 				arc = (Arc) edge;
-				place = (Place) arc.getTarget();
-				
-				curCount = placeFreq.get(place);
-				curCount += traceVariant.getCount(); 
-				placeFreq.replace(place, curCount);		
+				p = (Place)arc.getTarget();
+				if(p.equals(place)) {
+					return arc;
+				}
 			}
 		}
+		return null;
 	}
-
+	
 	private List<Transition> getTraceSeq(TraceVariant traceVariant, Map<XEventClass, Transition> transMap) {
 		// TODO Auto-generated method stub
 		List<XEventClass> traceSeq = traceVariant.getTraceVariant();
@@ -165,19 +251,4 @@ public class ReplayFiltering {
 		return seq;
 	}
 	
-	/**
-	 * init the Place Freq it means to give one initial count to each places
-	 * @param places
-	 * @return 
-	 */
-	private Map<Place, Integer> initPlaceFreq(Collection<Place> places) {
-		Map<Place, Integer> placesFreq= new LinkedHashMap<Place, Integer>();
-		Iterator piter = places.iterator();
-		while(piter.hasNext()) {
-			placesFreq.put((Place) piter.next(), 0);
-		}
-		return placesFreq;
-	}
-	
-
 }
