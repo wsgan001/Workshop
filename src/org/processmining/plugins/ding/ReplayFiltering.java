@@ -67,12 +67,15 @@ public class ReplayFiltering {
 		FilteringParameters params = ProMWizardDisplay.show(context, listWizard, new FilteringParameters());
 		
 		if (params != null) {
-			return filteringNet(context, net, log, params); 
+			Petrinet nnet  = PetrinetFactory.clonePetrinet(net);
+			// compareNet(net, nnet);
+			return filteringNet(context, nnet, log, params); 
 		}else {
 			System.out.println("No parameters are set... So return original");
 			return net;
 		}
 	}
+	
     /**
      * This method will count the frequency of Arcs of Petrinet, and delete them if they are smaller than threshold
      * @param context
@@ -101,10 +104,15 @@ public class ReplayFiltering {
 		// after it, we compare them to threshold
         int threshold = (int) (info.getNumberOfTraces() * params.getThreshold()*0.01);
         
-        Petrinet nnet  = PetrinetFactory.clonePetrinet(net);
+        // Petrinet nnet  = PetrinetFactory.clonePetrinet(net);
+        /**
+         * This clone method we should test it and see if they change, like Plae,Nodes,
+         * like Arcs if equal.. 
+         */
+        
  		// from here we need to change it,the thing we need actully is Petrinet Edge and consider relation ship about 
  		// the Node and Edge to Event log
- 		Map<Place, Place> placeMap = EventLogUtilities.getPlaceMap(net.getPlaces(), nnet.getPlaces());
+ 		// Map<Arc, Arc> arcMap = EventLogUtilities.getArcMap(net.getEdges(), nnet.getEdges());
  		// filtering arcs in the Petri net
         Iterator freqIter = arcFreq.entrySet().iterator();
         while (freqIter.hasNext()) {
@@ -112,13 +120,17 @@ public class ReplayFiltering {
             Map.Entry pair = (Map.Entry)freqIter.next();
             if((Integer)(pair.getValue()) < threshold) {
             	// here we need to remove the edge from petri net and also transition, places
-            	nnet.removeEdge((PetrinetEdge<PetrinetNode, PetrinetNode>)pair.getKey());
+            	// one exception happens, because Arc in nnet is different from net, so like place
+            	// we need to build one mapping between them, so they are just the same??
+            	// here is something wrong. tomorrow I need to work on that
+            	// PetrinetEdge<PetrinetNode, PetrinetNode> fromArc =(PetrinetEdge<PetrinetNode, PetrinetNode>)pair.getKey();
+            	net.removeEdge((PetrinetEdge<PetrinetNode, PetrinetNode>)pair.getKey());
             	// nnet.removePlace(placeMap.get((Arc)pair.getKey()));
             }
         }
 		// check the Petrinet and remove all isolate transitions and places
-        resetPetrinet(nnet);
-		return nnet;
+        resetPetrinet(net);
+		return net;
 	}
 	
 	private void resetPetrinet(Petrinet net) {
@@ -131,10 +143,11 @@ public class ReplayFiltering {
 		Iterator<PetrinetNode> iter = nodes.iterator();
 		while(iter.hasNext()) {
 			n = iter.next();
+			// n is places here, we could do it on transisition and also on places
 			preset = net.getInEdges(n);
 			postset = net.getOutEdges(n);
 			
-			if(preset == null && postset == null) {
+			if(preset.size() == 0 && postset.size() == 0) {
 				net.removeNode(n);
 			}// some situation that we delete only one side ??? Not possible!!
 			// else if()
@@ -195,7 +208,7 @@ public class ReplayFiltering {
 					
 					for(int j=0;j<i;j++) {
 						Transition pretrans =  seq.get(j);
-						Arc prearc = getArc(net,pretrans, transition, place);
+						Arc prearc = getArc(net, pretrans, place);
 						if(prearc != null) {
 							// if thers is one arc between those two transitions we add both counts on the path between this two arc
 							// and we need to get the arc of them both
@@ -218,22 +231,23 @@ public class ReplayFiltering {
 		arcFreq.replace(endarc, curCount + arcFreq.get(endarc));
 	}
 	
-	private Arc getArc(Petrinet net, Transition pretrans, Transition curtrans, Place place) {
+	private Arc getArc(Petrinet net, Transition pretrans,  Place place) {
 		// we have two transition and we want to see if there is one path between them. 
 		// one path, we mean A--> (P) ---> B
-		// but we return only the Arc before the Place
+		// but we return only the Arc before the Place here we firstly forget the multiple paths to between two trans
 		Arc arc = null;
 		Place p = null;
 		// we have already get the place before the current transition
 		// we need to check if all the postset places of pretrans has the same place
 		Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> postset = null;
-
-		postset = net.getOutEdges(curtrans);
+        
+		postset = net.getOutEdges(pretrans);
 		for (PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode> edge : postset) {
 			if (edge instanceof Arc) {
 				arc = (Arc) edge;
 				p = (Place)arc.getTarget();
 				if(p.equals(place)) {
+					
 					return arc;
 				}
 			}
