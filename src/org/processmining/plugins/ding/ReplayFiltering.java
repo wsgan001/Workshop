@@ -60,15 +60,12 @@ public class ReplayFiltering {
 	public Petrinet filteringByReplay(final UIPluginContext context, Petrinet net, XLog log)
 			throws ConnectionCannotBeObtained {
 		
-		// double percentage = 0.1; // places over percentage could be kept
-		
 		ReplayFilteringDialog replayDialog = new ReplayFilteringDialog();
 		ListWizard<FilteringParameters> listWizard = new ListWizard<FilteringParameters>(replayDialog);
 		FilteringParameters params = ProMWizardDisplay.show(context, listWizard, new FilteringParameters());
 		
 		if (params != null) {
 			Petrinet nnet  = PetrinetFactory.clonePetrinet(net);
-			// compareNet(net, nnet);
 			return filteringNet(context, nnet, log, params); 
 		}else {
 			System.out.println("No parameters are set... So return original");
@@ -99,33 +96,22 @@ public class ReplayFiltering {
         
         // for each trace we count the freq of each Arcs, which means we need to build one freq for Arcs
         for(int i=0; i<variants.size(); i++) {	
-        	countArcsFreq(variants.get(i), net, transMap, arcFreq);
+        	// add here to check it the trace fit
+        	if(fitModel(net, variants.get(i),transMap)) {
+        		countArcsFreq(variants.get(i), net, transMap, arcFreq);
+        	}
         }
 		// after it, we compare them to threshold
         int threshold = (int) (info.getNumberOfTraces() * params.getThreshold()*0.01);
-        
-        // Petrinet nnet  = PetrinetFactory.clonePetrinet(net);
-        /**
-         * This clone method we should test it and see if they change, like Plae,Nodes,
-         * like Arcs if equal.. 
-         */
-        
+    
  		// from here we need to change it,the thing we need actully is Petrinet Edge and consider relation ship about 
  		// the Node and Edge to Event log
- 		// Map<Arc, Arc> arcMap = EventLogUtilities.getArcMap(net.getEdges(), nnet.getEdges());
- 		// filtering arcs in the Petri net
         Iterator freqIter = arcFreq.entrySet().iterator();
         while (freqIter.hasNext()) {
         	// pair<Arc, count>
             Map.Entry pair = (Map.Entry)freqIter.next();
             if((Integer)(pair.getValue()) < threshold) {
-            	// here we need to remove the edge from petri net and also transition, places
-            	// one exception happens, because Arc in nnet is different from net, so like place
-            	// we need to build one mapping between them, so they are just the same??
-            	// here is something wrong. tomorrow I need to work on that
-            	// PetrinetEdge<PetrinetNode, PetrinetNode> fromArc =(PetrinetEdge<PetrinetNode, PetrinetNode>)pair.getKey();
             	net.removeEdge((PetrinetEdge<PetrinetNode, PetrinetNode>)pair.getKey());
-            	// nnet.removePlace(placeMap.get((Arc)pair.getKey()));
             }
         }
 		// check the Petrinet and remove all isolate transitions and places
@@ -133,6 +119,67 @@ public class ReplayFiltering {
 		return net;
 	}
 	
+	private boolean fitModel(Petrinet net, TraceVariant traceVariant, Map<XEventClass, Transition> transMap) {
+		// first to get the transition seq
+		List<Transition> seq = getTraceSeq(traceVariant, transMap);
+		
+    	Transition transition = null;
+    	Arc arc = null;
+    	// Place place = null;
+    	Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> preset = null;
+    	Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> postset = null;
+    	// set a token at first place... Na, we need to check it from another code
+    	Place splace = EventLogUtilities.getStartPlace(net);
+    	splace.getAttributeMap().put("token", 1);
+    	// boolean fit = true;
+		// first transition if it connects the initial place
+    	for(int i=0; i< seq.size(); i++) {
+			// we check from the second element in the sequence and then compare the elements at previous places
+			// one benefit maybe record if connections at one place is single ?? 
+			transition = seq.get(i);
+			
+			preset = net.getInEdges(transition);
+			// we need to see two transitions together???  
+			for (PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode> edge : preset) {
+				arc = (Arc) edge;
+				// get the prior place for transition
+				Place p= (Place) arc.getSource(); 
+				int tnum = (Integer)p.getAttributeMap().get("token");
+				// for each transition, check the preset places of it the tokens number is greater than one?? 
+				if(tnum<1) {
+					// fit = false; how about the token before, do we need to delete them, or not??
+					return false;
+				}else {
+					// it consume tokens from last place
+					p.getAttributeMap().put("token", tnum-1);
+				}
+			}
+			
+			// we need to generate the token for the next places
+			// it will generate token for places if it executes
+			postset = net.getOutEdges(transition);
+			// we need to see two transitions together???  
+			for (PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode> edge : postset) {
+				arc = (Arc) edge;
+				// get the prior place for transition
+				Place p= (Place) arc.getTarget();
+				p.getAttributeMap().put("token", 1);
+			}
+			
+		}
+    	// do we consider about the last token?? Actually we don't consider it, also should we kind of remove the added attribute??
+    	// we have already change the data..
+    	// If we don't want to change it, we need to build one map to count the token num in place
+    	// If we find one place. then we go there, but it is easier. I need to admit
+    	// Also, the last place, do we need to remove it, somehow like it???, or just leave it like this??
+    	splace = EventLogUtilities.getEndPlace(net);
+    	int tnum = (Integer)splace.getAttributeMap().get("token");
+    	splace.getAttributeMap().put("token", tnum-1);
+    	
+		// if not we see it's not fit, return false
+		return true;
+	}
+
 	private void resetPetrinet(Petrinet net) {
 		// check the Petrinet and remove all isolate transitions and places
 		Collection<PetrinetNode> nodes = net.getNodes();
@@ -149,8 +196,7 @@ public class ReplayFiltering {
 			
 			if(preset.size() == 0 && postset.size() == 0) {
 				net.removeNode(n);
-			}// some situation that we delete only one side ??? Not possible!!
-			// else if()
+			}
 		}
 	}
 	private Map<Arc, Integer> initArcsFreq(Set<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> arcs) {

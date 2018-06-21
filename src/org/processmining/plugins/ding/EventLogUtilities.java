@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.deckfour.xes.classification.XEventClass;
 import org.deckfour.xes.classification.XEventClasses;
@@ -23,7 +22,6 @@ import org.processmining.models.graphbased.AttributeMap;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetEdge;
 import org.processmining.models.graphbased.directed.petrinet.PetrinetNode;
-import org.processmining.models.graphbased.directed.petrinet.elements.Arc;
 import org.processmining.models.graphbased.directed.petrinet.elements.Place;
 import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
 
@@ -76,38 +74,13 @@ public class EventLogUtilities {
 		Map<XEventClass, Transition> map = new HashMap<XEventClass, Transition>();
 		
 		for (Transition transition : transitions) {
-			boolean visible=false;
 			for (XEventClass eventClass : classes.getClasses()) {
 				if (eventClass.getId().equals(transition.getAttributeMap().get(AttributeMap.LABEL))) {
 					map.put(eventClass, transition);
-					visible=true;
 				}
-			}
-			if(!visible){
-				transition.setInvisible(true);
 			}
 		}
 		return map;
-	}
-
-	public static Map<Place, Place> getPlaceMap(Collection<Place> fromPlaces, Collection<Place> toPlaces) {
-		// create a Place Map from clonable Petri net and see if it works
-		Map<Place, Place> placeMap = new HashMap<Place, Place>();
-		Iterator fiter = fromPlaces.iterator();
-		Iterator titer ;
-		Place fromP, toP;
-		while(fiter.hasNext()) {
-			fromP = (Place)fiter.next();
-			titer = toPlaces.iterator();
-			while(titer.hasNext()) {
-				toP = (Place)titer.next();
-				if(fromP.getLabel().equals(toP.getLabel())) {
-					placeMap.put(fromP, toP);
-					break;
-				}
-			}
-		}
-		return placeMap;
 	}
    
 	public static void exportSingleLog(XLog log, String targetName) throws IOException {
@@ -160,65 +133,4 @@ public class EventLogUtilities {
 		}
 		return endp;
 	}
-
-	public static Map<Arc, Arc> getArcMap(Set<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> fromEdges,
-			Set<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> toEdges) {
-		// like to get Place Map betweeen two nets.. But need to ask if there is an easy way??
-		Map<Arc, Arc> arcMap = new HashMap<Arc, Arc>();
-		Iterator fiter = fromEdges.iterator();
-		Iterator titer ;
-		Arc fromP, toP;
-		while(fiter.hasNext()) {
-			fromP = (Arc)fiter.next();
-			titer = toEdges.iterator();
-			while(titer.hasNext()) {
-				toP = (Arc)titer.next();
-				// how to compare if the arcs are the same or no
-				if(fromP.getLabel().equals(toP.getLabel())) {
-					arcMap.put(fromP, toP);
-					break;
-				}
-			}
-		}
-		return arcMap;
-	}
-	
-
-	private boolean compareNet(Petrinet net, Petrinet nnet) {
-		// firstly to compare the Places
-		Collection<Place> places = net.getPlaces();
-		Collection<Place> nplaces = nnet.getPlaces();
-		// iterate from one to another and test if it is contained???
-		// they are not contained, like Arc in petri net
-		// So we need to build mapping between them...
-		// but what about that we use the new Petrinet and just to compare them
-		Iterator<Place> piter = places.iterator();
-		while(piter.hasNext()) {
-			Place p = piter.next();
-			if(nplaces.contains(p)) {
-				System.out.println(p.getLabel() + " from net is in nnet");
-			}else {
-				System.out.println(p.getLabel() + " from net is not in nnet\n we need to build map ");
-			}
-		}
-		
-		// Edges
-		Set<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> arcs = net.getEdges();
-		Set<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> narcs = nnet.getEdges();
-		Iterator<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> aiter = arcs.iterator();
-		while(aiter.hasNext()) {
-			Arc a = (Arc) aiter.next();
-			if(narcs.contains(a)) {
-				System.out.println(a.getLabel() + " from net is in nnet");
-			}else {
-				System.out.println(a.getLabel() + " from net is not in nnet\n we need to build map ");
-			}
-		}
-		// if they are not, how could we make them equal??? 
-		// how about to remove some arc from them ?? And places 
-		// create map between them..
-		
-		return false;
-	}	
-
 }
