@@ -27,6 +27,8 @@ import org.processmining.models.graphbased.directed.petrinet.elements.Arc;
 import org.processmining.models.graphbased.directed.petrinet.elements.Place;
 import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
 import org.processmining.models.graphbased.directed.petrinet.impl.PetrinetFactory;
+import org.processmining.plugins.ding.util.EventLogUtilities;
+import org.processmining.plugins.ding.util.TraceVariant;
 
 /**
  * This class is used to Removing places in replayable check
@@ -143,7 +145,12 @@ public class ReplayFiltering {
 			for (PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode> edge : preset) {
 				arc = (Arc) edge;
 				// get the prior place for transition
-				Place p= (Place) arc.getSource(); 
+				Place p= (Place) arc.getSource();
+				// we can't make sure all the events show in an order. So if it doesn't, then 
+				// we don't have the number of tnum...
+				if(p.getAttributeMap().get("token") == null) {
+					return false;
+				}
 				int tnum = (Integer)p.getAttributeMap().get("token");
 				// for each transition, check the preset places of it the tokens number is greater than one?? 
 				if(tnum<1) {

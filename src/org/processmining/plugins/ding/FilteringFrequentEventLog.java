@@ -23,6 +23,8 @@ import org.processmining.framework.plugin.annotations.PluginVariant;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.semantics.petrinet.Marking;
 import org.processmining.plugins.ding.ui.FilteringUI;
+import org.processmining.plugins.ding.util.EventLogUtilities;
+import org.processmining.plugins.ding.util.TraceVariant;
 
 /**
  * This plugin is to filter the event log in three different methods.

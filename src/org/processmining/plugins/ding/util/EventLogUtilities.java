@@ -1,4 +1,4 @@
-package org.processmining.plugins.ding;
+package org.processmining.plugins.ding.util;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
