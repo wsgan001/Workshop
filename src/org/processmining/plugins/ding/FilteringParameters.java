@@ -57,7 +57,6 @@ public class FilteringParameters {
 	}
 	
 	
-	
 
 	/**
 	 * Set the classifier to the given classifier.

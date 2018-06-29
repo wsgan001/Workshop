@@ -45,15 +45,15 @@ import org.processmining.plugins.ding.util.TraceVariant;
 @Plugin(
 		name = "Filtering Places 2nd Versionw.r.t Replayability",
 		parameterLabels = {"Event log", "Petri Net"},
-		returnLabels = { "Filtered Petri Net"},
-		returnTypes = {Petrinet.class},
+		returnLabels = { "Filtered Resultl"},
+		returnTypes = {ReplayFilteringResult.class},
 		userAccessible = true,
 		help = "Filtering Places in A Petri Net w.r.t frequency")
 public class ReplayPlaces {
 	
 	@UITopiaVariant(affiliation = UITopiaVariant.EHV, author = "Kefang Ding", email = "ding@rwth-aachen.de")
 	@PluginVariant(variantLabel = "From Petri net and Event Log", requiredParameterLabels = { 0, 1 })
-	public Petrinet filteringByReplay(final UIPluginContext context, Petrinet net, XLog log)
+	public ReplayFilteringResult filteringByReplay(final UIPluginContext context, Petrinet net, XLog log)
 			throws ConnectionCannotBeObtained {
 		
 		ReplayFilteringDialog replayDialog = new ReplayFilteringDialog();
@@ -62,10 +62,13 @@ public class ReplayPlaces {
 		
 		if (params != null) {
 			Petrinet nnet  = PetrinetFactory.clonePetrinet(net);
-			return filteringNet(context, nnet, log, params); 
+			// filtered net and then output here
+			Petrinet fnet = filteringNet(context, nnet, log, params);
+			// how to show the filtered petri net in the result??
+			return new ReplayFilteringResult(fnet); 
 		}else {
 			System.out.println("No parameters are set... So return original");
-			return net;
+			return new ReplayFilteringResult(net);
 		}
 	}
 	
@@ -86,7 +89,8 @@ public class ReplayPlaces {
         List<TraceVariant> variants =  EventLogUtilities.getTraceVariants(log);
         
         // for each trace we count the freq of each Arcs, which means we need to build one freq for Arcs
-        for(int i=0; i<variants.size(); i++) {	
+        for(int i=0; i<variants.size(); i++) {
+        	initPlaceAttribute(places);
         	countPlaceFreq(variants.get(i), net, transMap);
         }
         
@@ -99,10 +103,6 @@ public class ReplayPlaces {
         while (iter.hasNext()) {
         	// pair<Arc, count>
             Place place = (Place)iter.next();
-            // should we count the threshold for one place, it's like ..
-            // unFitNum /(fitNum + unFitNum) > threshold, then we delete it..Else keep it here
-            // if we use total trace, it seems that fitNum + unFitNum are same
-            // not equal for the end place.. SO something is missed...
             int totalNum = ((int)(place.getAttributeMap().get("unFitNum")) + (int)(place.getAttributeMap().get("fitNum")));
             if(totalNum != info.getNumberOfTraces()) {
             	System.out.println("Not equal for the total num and count " + place.getLabel());
@@ -111,26 +111,69 @@ public class ReplayPlaces {
             if((Integer)(place.getAttributeMap().get("unFitNum")) > threshold) {
             	// net.removePlace(place);
             	// firstly we just color the place.. How could we add some color to places??? and then draw them out???
-            	// so we need to make one attribute into it
             	place.getAttributeMap().put("isMarked", true);
-            	net.removePlace(place);
+            	// for iterator we shouldn't change the structure at first, but to use iterator 
+            	// net.removePlace(place);
             }
         }
 		// check the Petrinet and remove all isolate transitions and places
-        // resetPetrinet(net);
+        resetPetrinet(net);
 		return net;
 	}
 	
 	
 	/**
 	 * we remove bad places and create the new ones
+	 * how about the transition and place in between?? 
+	 *   -- transition in between two bad places, delete also the transition
+	 *   -- no deletion for transition?? Or somehow?? 
+	 *   -- B - T - R, we delete the wrong places: if places miss token, next place could be fine.
+	 *   --          how to connect the place before, we track it back until we find the good one?? And then we connect it ?
+	 *   -- R -T - B, we delete place, if it miss token, meaning transition should be there, we should then
+	 *             it shows in the graph:  C has no outEdges???
+	 *             
+	 *             if token is missed at this place, we should delete the transition before,
+	 *             because the transiton before should produce token!!!
+	 *             
+	 *             if it remains token, if means the transition later doesn't comsume token!! 
+	 *             
+	 *             So should we differ the two cases, assign miss and remain to each place??
+	 *             and then delete them?? 
+	 *             
+	 *             -- we could do it as one option, but now concentrate on coloring
+	 *             
+	 *   -- Or we just track back and track before to find one bad path, and then delete all the paths..
+	 *   -- How to stop it?? It's the main problem::
+	 *   ---Nana, we try to color them at first
 	 * @param net
 	 */
 	private void resetPetrinet(Petrinet net) {
-		// if places are marked, then we color and delete them. The easist way is to delete them at first step 
-		// to delete places:: 
-		//  --- if they are connected with transitions
+		Object[] places = net.getPlaces().toArray();
+		for(int i=0; i< places.length;i++) {
+			Place p = (Place)places[i];
+        	if((boolean)p.getAttributeMap().get("isMarked")) {
+        		// net.removePlace(p);
+        		System.out.println("to delete "+ p.getLabel());
+        	}
+        }
 		
+		// clear net and delete the bad transition 
+		Collection<PetrinetNode> nodes = net.getNodes();
+		PetrinetNode n;
+		Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> preset = null;
+		Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> postset = null;
+		// if nodes are isolate then remove it
+		Iterator<PetrinetNode> iter = nodes.iterator();
+		while(iter.hasNext()) {
+			n = iter.next();
+			// n is places here, we could do it on transisition and also on places
+			preset = net.getInEdges(n);
+			postset = net.getOutEdges(n);
+			
+			if(preset.size() == 0 && postset.size() == 0) {
+				net.removeNode(n);
+			}
+		}
 	}
 
 	private void countPlaceFreq(TraceVariant traceVariant, Petrinet net, Map<XEventClass, Transition> transMap) {
@@ -146,18 +189,7 @@ public class ReplayPlaces {
     	
     	// for every place we need to check with all traces. Even if it doesn't fit and we can continue the next check.
     	// set a token at first place... Na, we need to check it from another code
-    	// for every place, we just need to give bad mark once, missing or remain
-    	// missing is bad, remaining how to count. With loop, if it remains and it works better
-    	// we see it's fine. But missing needs counting, and then remaining parts
-    	
-    	// 
-    	
     	Place splace = EventLogUtilities.getStartPlace(net);
-    	// should we put splace one token already, or we just wait until we see the next transition?? 
-    	// if it's what I understand, how should I do for the next steps?? 
-    	// One place is not replayable, it means when it should be in the path, it isn't there. 
-    	// when it shouldn't be on the trace, it is there. Both situation we need to consider
-    	// also the best path to go through the model,like optimal alignment in it
     	splace.getAttributeMap().put("token", 1);
     	// the token at first place could remain..
     	// boolean fit = true;
@@ -174,18 +206,12 @@ public class ReplayPlaces {
 				// get the prior place for transition
 				Place p= (Place) arc.getSource();
 				// we can't make sure all the events show in an order. So if it doesn't, then 
-				// we don't have the number of tnum
-				if(p.getAttributeMap().get("token") == null || (Integer)p.getAttributeMap().get("token") < 1 ) {
-					p.getAttributeMap().put("isMissing", true);
-					p.getAttributeMap().put("token", 1);
-				}
+				// not enough token in one place before transition
 				int tnum = (Integer)p.getAttributeMap().get("token");
-				// token remaining...
-				if(tnum > 1) {
-					p.getAttributeMap().put("isRemaining", true);
+				if(!(tnum == 1 && !(boolean) p.getAttributeMap().get("isBad"))) {
+					p.getAttributeMap().put("isBad", true);	
 				}
-				p.getAttributeMap().put("token", 0);
-				// we need to test it here. If there is some remaining, then we need to mark it
+				p.getAttributeMap().put("token", tnum -1 < 0 ? 0:tnum -1);
 			}
 			
 			// we need to generate the token for the next places
@@ -196,13 +222,7 @@ public class ReplayPlaces {
 				arc = (Arc) edge;
 				// get the prior place for transition
 				Place p= (Place) arc.getTarget();
-				// it could have more tokens here, so we need to make sure 
-				if(p.getAttributeMap().get("token") == null) 
-					// if there is no token, we add it simply 1
-					p.getAttributeMap().put("token", 1 );
-				else
-					// if it has been assigned before, then we could get it directly
-					p.getAttributeMap().put("token", (Integer)p.getAttributeMap().get("token") + 1);
+				p.getAttributeMap().put("token", (Integer)p.getAttributeMap().get("token") + 1);
 			}
 			
 		}
@@ -210,35 +230,20 @@ public class ReplayPlaces {
     	// token based, we need to have such transition..
     	splace = EventLogUtilities.getEndPlace(net);
     	// it lacks token, so problem here
-    	if(splace.getAttributeMap().get("token") != null) {
-			int tnum = (Integer)splace.getAttributeMap().get("token");
-			if(tnum > 1) {
-				splace.getAttributeMap().put("isRemaining", true);
-			}
-			splace.getAttributeMap().put("token", 0);
-    	}
+    	int tnum = (Integer)splace.getAttributeMap().get("token");
+    	splace.getAttributeMap().put("token", tnum -1);
+    	
     	// then after this trace, how to count the unFitNum of place?? 
 		// if it is missing, we count it directly, but if token remains, we see it unfit ???
 		Iterator piter = net.getPlaces().iterator();
 		while(piter.hasNext()) {
 			Place place = (Place) piter.next();
 			// first this place doesn't show in the path
-			if(place.getAttributeMap().get("token") == null) {
+			if((Integer)place.getAttributeMap().get("token") == 0  && !(boolean) place.getAttributeMap().get("isBad")) {
 				place.getAttributeMap().put("fitNum",  (Integer)place.getAttributeMap().get("fitNum")+ curCount);
-			}
-			if(place.getAttributeMap().get("isRemaining") == null || ((Integer)place.getAttributeMap().get("token") == 0 && place.getAttributeMap().get("isMissing") == null)) {
-				// place is used and fitModel..
-				place.getAttributeMap().put("fitNum", (Integer)place.getAttributeMap().get("fitNum")+ curCount);
 			}else {
-				// token remaining, do we need to add some attribute to signal it ?? 
-				// It is fine.. Maybe like this.. but what about if it unfit twice, so one is missing, and one is remaining??
-				// after one remaining, then is missing for some place, how to recover it back??
 				place.getAttributeMap().put("unFitNum", (Integer)place.getAttributeMap().get("unFitNum")+ curCount);
 			}
-			// after one trace, we should set the token in each place into null ,just to delete them..
-			place.getAttributeMap().remove("token");
-			place.getAttributeMap().remove("isMissing");
-			place.getAttributeMap().remove("isRemaining");
 		}
 		
 	}
@@ -251,6 +256,7 @@ public class ReplayPlaces {
 			// or we just should to test if it has, it it has they we do it , if not, dont do it
 			place.getAttributeMap().put("fitNum", 0);
 			place.getAttributeMap().put("unFitNum", 0);
+			place.getAttributeMap().put("isMarked", false);
 		}
 	}
 	
@@ -259,17 +265,9 @@ public class ReplayPlaces {
 		while(piter.hasNext()) {
 			Place place = (Place) piter.next();
 			// but after each trace, we need to clear token again and assign the new ones. 
-			if(! place.getAttributeMap().containsKey("token")) {
-				// if it is initialization, it has no "token" symbol
-				place.getAttributeMap().put("token", 0);
-				place.getAttributeMap().put("isBad", false);
-				// place.getAttributeMap().put("isRemaining", false);
-			}else {
-				// after one trace, it has token. we remove all place attributes
-				place.getAttributeMap().remove("token");
-				place.getAttributeMap().remove("isBad");
-				//place.getAttributeMap().remove("isRemaining");
-			}
+			place.getAttributeMap().put("token", 0);
+			place.getAttributeMap().put("isBad", false);
+			
 		}
 	}
 	

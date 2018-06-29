@@ -27,6 +27,14 @@ public class ReplayFilteringUI  extends JPanel implements ChangeListener, ItemLi
 
 	/**
 	 * Firstly, we just need to create one interface which shows the result and control panel on the result
+	 * 
+	 * adjust threshold information
+	 * 
+	 * add color information on plaecs
+	 * 
+	 * control to delete them
+	 *  
+	 * 
 	 */
 	private static final long serialVersionUID = 1000L;
 	
