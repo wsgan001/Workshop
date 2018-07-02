@@ -14,13 +14,8 @@ import org.processmining.models.jgraph.ProMJGraph;
 import com.jgraph.layout.JGraphFacade;
 import com.jgraph.layout.hierarchical.JGraphHierarchicalLayout;
 
-public class AddPlaceColor {
-
-	
-}
-
 class GraphBuilder {
-	
+	// should we do it here and delete it?? 
 	
 	public static ProMJGraph buildJGraph(
 			DirectedGraph<? extends DirectedGraphNode, ? extends DirectedGraphEdge<? extends DirectedGraphNode, ? extends DirectedGraphNode>> net) {

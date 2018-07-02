@@ -4,13 +4,17 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonGroup;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JRadioButton;
 import javax.swing.JSlider;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -26,7 +30,9 @@ import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 import org.processmining.models.graphbased.directed.petrinet.elements.Place;
 import org.processmining.models.jgraph.ProMJGraph;
 import org.processmining.plugins.ding.ReplayFilteringResult;
+import org.processmining.plugins.ding.util.NetUtilities;
 
+import com.fluxicon.slickerbox.ui.SlickerRadioButtonUI;
 import com.fluxicon.slickerbox.ui.SlickerSliderUI;
 
 @Plugin(name = "Show Places Colored", parameterLabels = { "Petrinet" }, returnLabels = { "JPanel" }, returnTypes = { JPanel.class })
@@ -41,11 +47,16 @@ public class ReplayFilteringVisualization {
 }
 
 class ReplayMainView extends JPanel{
-	ShowColorView leftView;
+	ShowView leftView;
 	PlaceControlView rightView;
 	
 	public ReplayMainView(PluginContext context, Petrinet net) {
-		leftView = new ShowColorView(context, net);
+		
+		// RelativeLayout rl = new RelativeLayout(RelativeLayout.X_AXIS);
+		
+		// setLayout(new BorderLayout());
+		
+		leftView = new ShowView(context, net);
 		rightView = new PlaceControlView(context);
 		
 		leftView.setRightView(rightView);
@@ -54,13 +65,16 @@ class ReplayMainView extends JPanel{
 		this.add(this.leftView, new Float(70));
 		this.add(this.rightView, new Float(30));
 		
+		leftView.drawResult(false);
 	}
 	
 }
 
 class PlaceControlView extends JPanel{
-	ShowColorView rightView;
+	ShowView rightView;
 	double threshold;
+	
+	boolean chooseDelete = false;
 
 	protected JSlider thresholdSlider;
 	protected JLabel thresholdLabel;
@@ -72,8 +86,8 @@ class PlaceControlView extends JPanel{
 	
 	// from place control view, we get parameter to delete or color places
 	public PlaceControlView(PluginContext context) {
-		// right filter panel for threshold input
 		
+		// right filter panel for threshold input
 		this.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
 		this.setBackground(COLOR_BG2);
 		this.setOpaque(true);
@@ -99,9 +113,10 @@ class PlaceControlView extends JPanel{
 				if (e.getSource() == thresholdSlider) {
 					// updateThresholdSlider();
 					threshold = thresholdSlider.getValue();
-					thresholdLabel.setText("Set threshold: "+ threshold/1000.0);
+					thresholdLabel.setText(""+threshold/1000.0);
 					if (thresholdSlider.getValueIsAdjusting() == false) {
-						// we need to recall the 
+						// we need to recall the
+						// how to wait it until it doesn't change and then pass the value
 					}
 				}
 				
@@ -113,8 +128,72 @@ class PlaceControlView extends JPanel{
 		this.add(thresholdSlider, BorderLayout.CENTER);
 		
 		
+		// add for radioButton to combine 
+		JPanel colorDeletePanel = new JPanel();
+		colorDeletePanel.setOpaque(false);
+		colorDeletePanel.setLayout(new BoxLayout(colorDeletePanel, BoxLayout.Y_AXIS));
+		JLabel colorDeleteLabel = new JLabel("Delete Bad Places");
+		colorDeleteLabel.setOpaque(false);
+		colorDeleteLabel.setForeground(COLOR_FG);
+		colorDeleteLabel.setFont(this.smallFont);
+		//centerHorizontally(lowerHeaderLabel);
+		final JRadioButton colorRadioButton = new JRadioButton("Color Bad Places");
+		colorRadioButton.setSelected(true);
+		colorRadioButton.setUI(new SlickerRadioButtonUI());
+		colorRadioButton.setFont(this.smallFont);
+		colorRadioButton.setBorder(BorderFactory.createEmptyBorder(2, 10, 2, 2));
+		colorRadioButton.setOpaque(false);
+		colorRadioButton.setForeground(COLOR_FG);
+		colorRadioButton.setAlignmentX(JRadioButton.LEFT_ALIGNMENT);
+		colorRadioButton.setHorizontalAlignment(JRadioButton.LEFT);
+		colorRadioButton.addItemListener(new ItemListener() {
+			
+			public void itemStateChanged(ItemEvent e) {
+				// color the bad places in original graphs.. 
+				// firstly to get the rightView and 
+				// then pass the threshold to it and deleteChoice to ??? 
+				// rightView only accept the graph to draw,(I think it better) it again..
+				if(colorRadioButton.isSelected()) {
+					chooseDelete = false;
+					rightView.drawResult(chooseDelete);	
+				}
+			}
+		});
+		colorRadioButton.setToolTipText("<html>Color the bad places<br>"
+				 + "which are not replayable for traces.</html>");
+		final JRadioButton deleteRadioButton = new JRadioButton("Delete Bad Places");
+		deleteRadioButton.setUI(new SlickerRadioButtonUI());
+		deleteRadioButton.setFont(this.smallFont);
+		deleteRadioButton.setBorder(BorderFactory.createEmptyBorder(2, 10, 2, 2));
+		deleteRadioButton.setOpaque(false);
+		deleteRadioButton.setForeground(COLOR_FG);
+		deleteRadioButton.setAlignmentX(JRadioButton.LEFT_ALIGNMENT);
+		deleteRadioButton.setHorizontalAlignment(JRadioButton.LEFT);
+		deleteRadioButton.addItemListener(new ItemListener() {
+			public void itemStateChanged(ItemEvent e) {
+				// after we choose delete, we delete places and repaint the graph again
+				if(deleteRadioButton.isSelected()) {
+					chooseDelete = true;
+					rightView.drawResult(chooseDelete);
+				}
+			}
+		});
+		deleteRadioButton.setToolTipText("<html>delete bad places <br>"
+				 + "which are not replayable for traces.</html>");
+		ButtonGroup radioGroup = new ButtonGroup();
+		radioGroup.add(colorRadioButton);
+		radioGroup.add(deleteRadioButton);
+		
+		
+		colorDeletePanel.add(colorDeleteLabel);
+		colorDeletePanel.add(Box.createVerticalStrut(2));
+		colorDeletePanel.add(colorRadioButton);
+		colorDeletePanel.add(deleteRadioButton);
+		colorDeletePanel.add(Box.createVerticalStrut(5));
+		
+		this.add(colorDeletePanel, BorderLayout.SOUTH);
 	}
-	
+
 	protected void centerHorizontally(JLabel label) {
 		label.setHorizontalAlignment(JLabel.CENTER);
 		label.setHorizontalTextPosition(JLabel.CENTER);
@@ -138,12 +217,12 @@ class PlaceControlView extends JPanel{
 	}
 
 	
-	public void setLeftView(ShowColorView rightView) {
+	public void setLeftView(ShowView rightView) {
 		this.rightView = rightView;
 	}
 	
 }
-class ShowColorView extends JPanel{
+class ShowView extends JPanel{
 	PluginContext context;
 	Petrinet net;
 	
@@ -153,14 +232,24 @@ class ShowColorView extends JPanel{
 	JComponent graphComponent;
 	
 	// we accept Petrinet and then create one graph from it 
-	public ShowColorView(PluginContext context, Petrinet net) {
+	public ShowView(PluginContext context, Petrinet net) {
 		this.context = context;
 		this.net = net;
-		this.graphComponent = graphVisualize();
 		
+		this.graphComponent = graphVisualize(false);
 		this.add(graphComponent, new Float(100));
 	}
 	
+	public void drawResult(boolean drawDelete) {
+		// TODO we need to differ if it is drawDeleteOnes or the coloredOnes
+		this.remove(graphComponent);
+		
+		this.graphComponent = graphVisualize(drawDelete);
+		this.add(graphComponent, new Float(100));
+		this.revalidate();
+		this.repaint();
+	}
+
 	public void setRightView(PlaceControlView rightView) {
 		this.rightView = rightView;
 	}
@@ -173,18 +262,35 @@ class ShowColorView extends JPanel{
 		graph.repaint();
 	}
 	
-	JComponent graphVisualize() {
+	JComponent graphVisualize(boolean drawDelete) {
 		// how to make it ScalableComponet??
-		ScalableComponent tmpGraph = GraphBuilder.buildJGraph(net); 
-		graph = (ProMJGraph)tmpGraph;
+		if(drawDelete) {
+			// if we need to delete Places, we change the net, but how about the next time??
+			// we actually want to use online control, then it means we need to create another net for it?
+			// or we control it by createGraph???? 
+			Petrinet dnet = NetUtilities.clone(net);
+			// no we can't get it from this.. Another way around it to add into place the same attributes
+			NetUtilities.resetPetrinet(dnet);
+			ScalableComponent tmpGraph = GraphBuilder.buildJGraph(dnet); 
+			graph = (ProMJGraph)tmpGraph;
+			
+			constructVisualization(graph.getViewSpecificAttributes(), true, true);
+			
+		}else {
 		
-		constructVisualization(graph.getViewSpecificAttributes(), true, true);
-		
-		for (Place p : net.getPlaces()) {
-			// if place is bad, then we give it a color.. Maybe we could define it later
-			if ((boolean)p.getAttributeMap().get("isBad")) {
-				graph.getViewSpecificAttributes().putViewSpecific(p, AttributeMap.FILLCOLOR, new Color(250,0,0));
+			ScalableComponent tmpGraph = GraphBuilder.buildJGraph(net); 
+			graph = (ProMJGraph)tmpGraph;
+			constructVisualization(graph.getViewSpecificAttributes(), true, true);
+			if(!drawDelete) {
+				for (Place p : net.getPlaces()) {
+					// if place is bad, then we give it a color.. Maybe we could delete it later
+					if ((boolean)p.getAttributeMap().get("isMarked")) {
+						// make the mark uniform
+						graph.getViewSpecificAttributes().putViewSpecific(p, AttributeMap.FILLCOLOR,java.awt.Color.RED);
+					}
+				}
 			}
+		
 		}
 		return graph.getComponent();
 	}

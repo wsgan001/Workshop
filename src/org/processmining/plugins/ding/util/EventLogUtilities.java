@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -19,10 +18,6 @@ import org.deckfour.xes.model.XTrace;
 import org.deckfour.xes.out.XSerializer;
 import org.deckfour.xes.out.XesXmlSerializer;
 import org.processmining.models.graphbased.AttributeMap;
-import org.processmining.models.graphbased.directed.petrinet.Petrinet;
-import org.processmining.models.graphbased.directed.petrinet.PetrinetEdge;
-import org.processmining.models.graphbased.directed.petrinet.PetrinetNode;
-import org.processmining.models.graphbased.directed.petrinet.elements.Place;
 import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
 
 /**
@@ -90,47 +85,5 @@ public class EventLogUtilities {
 		out.close();
 	}
 	
-	public static Place getStartPlace(Petrinet net) {
-		// first we get all the places if one place has no preset edges
-		// then it is the startPlace
-		Collection<Place> places = net.getPlaces();
-		Place p, startp = null;
-		Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> preset = null;
-		Iterator<Place> pIterator = places.iterator();
-		while(pIterator.hasNext()) {
-			p = pIterator.next();
-			preset = net.getInEdges(p);
-			if(preset.size() < 1) {
-				startp =  p;
-			}
-		}
-		// if there is no start position, then we create one
-		if(startp == null) {
-			System.out.println("There is no Start Place and create start place");
-			// and also the Arc to it 
-			// Place pstart = net.addPlace("Start");
-		}
-		return startp;
-	}
 	
-	public static Place getEndPlace(Petrinet net) {
-		// firstly to get all places, if one place has no postset edges, then
-		// it is the endPlace
-		Collection<Place> places = net.getPlaces();
-		Place p, endp = null;
-		Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> postset = null;
-		Iterator<Place> pIterator = places.iterator();
-		while(pIterator.hasNext()) {
-			p = pIterator.next();
-			postset = net.getOutEdges(p);
-			if(postset.size() < 1) {
-				endp = p;
-			}
-		}
-		if(endp == null) {
-			System.out.println("There is no End Place and create end place");
-			// and also the Arc to it 
-		}
-		return endp;
-	}
 }

@@ -146,8 +146,8 @@ public class ReplayFilteringUI  extends JPanel implements ChangeListener, ItemLi
 			if (thresholdSlider.getValueIsAdjusting() == false) {
 				// fastTransformer.setThreshold(value);
 				// here we need to set the parameter into part to redrawGraph..
-				
-				redrawGraph(true);
+			
+				// redrawGraph(true);
 			}
 		}
 		

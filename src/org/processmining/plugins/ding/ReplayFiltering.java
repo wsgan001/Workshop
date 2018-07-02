@@ -28,6 +28,7 @@ import org.processmining.models.graphbased.directed.petrinet.elements.Place;
 import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
 import org.processmining.models.graphbased.directed.petrinet.impl.PetrinetFactory;
 import org.processmining.plugins.ding.util.EventLogUtilities;
+import org.processmining.plugins.ding.util.NetUtilities;
 import org.processmining.plugins.ding.util.TraceVariant;
 
 /**
@@ -131,7 +132,7 @@ public class ReplayFiltering {
     	Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> preset = null;
     	Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> postset = null;
     	// set a token at first place... Na, we need to check it from another code
-    	Place splace = EventLogUtilities.getStartPlace(net);
+    	Place splace = NetUtilities.getStartPlace(net);
     	splace.getAttributeMap().put("token", 1);
     	// boolean fit = true;
 		// first transition if it connects the initial place
@@ -179,7 +180,7 @@ public class ReplayFiltering {
     	// If we don't want to change it, we need to build one map to count the token num in place
     	// If we find one place. then we go there, but it is easier. I need to admit
     	// Also, the last place, do we need to remove it, somehow like it???, or just leave it like this??
-    	splace = EventLogUtilities.getEndPlace(net);
+    	splace = NetUtilities.getEndPlace(net);
     	int tnum = (Integer)splace.getAttributeMap().get("token");
     	splace.getAttributeMap().put("token", tnum-1);
     	
@@ -236,7 +237,7 @@ public class ReplayFiltering {
     	
     	transition = seq.get(0);
 		// start position: 
-		Arc startarc = net.getArc(EventLogUtilities.getStartPlace(net), transition);
+		Arc startarc = net.getArc(NetUtilities.getStartPlace(net), transition);
 		// add Freq to it 
 		arcFreq.replace(startarc, curCount + arcFreq.get(startarc));
 		
@@ -279,7 +280,7 @@ public class ReplayFiltering {
 		// deal with the end transition and also the start transition
 		// the end position get postset, but we also do it to link end position
 		// get Arc of it and end position
-		Arc endarc = net.getArc(transition, EventLogUtilities.getEndPlace(net));
+		Arc endarc = net.getArc(transition, NetUtilities.getEndPlace(net));
 		// add arcFreq
 		arcFreq.replace(endarc, curCount + arcFreq.get(endarc));
 	}
