@@ -14,6 +14,7 @@ import org.deckfour.xes.model.XLog;
 import org.processmining.contexts.uitopia.UIPluginContext;
 import org.processmining.contexts.uitopia.annotations.UITopiaVariant;
 import org.processmining.framework.connections.ConnectionCannotBeObtained;
+import org.processmining.framework.plugin.PluginContext;
 import org.processmining.framework.plugin.annotations.Plugin;
 import org.processmining.framework.plugin.annotations.PluginVariant;
 import org.processmining.framework.util.ui.wizard.ListWizard;
@@ -63,31 +64,51 @@ public class ReplayPlaces {
 		if (params != null) {
 			// Petrinet nnet  = NetUtilities.clone(net);
 			Petrinet nnet  = PetrinetFactory.clonePetrinet(net);
-			
-			Petrinet fnet = filteringNet(context, nnet, log, params);
-			// how to show the filtered petri net in the result??
-			return new ReplayFilteringResult(fnet); 
+			return filteringNet(context, nnet, log, params);
 		}else {
 			System.out.println("No parameters are set... So return original");
-			return new ReplayFilteringResult(net);
+			return new ReplayFilteringResult(net, -1);
 		}
 	}
 	// two ways to separate the programs, one is to get sammary info and it could be used later
 	// one it to accept the threshold and then only work on that.. For me, I'd like to choose 
 	// get summary at first and then threshold later
-	private Petrinet filteringNet(UIPluginContext context, Petrinet net, XLog log, FilteringParameters params) {
+	private ReplayFilteringResult filteringNet(PluginContext context, Petrinet net, XLog log, FilteringParameters params) {
+		
+		Collection<ReplayFilteringConnection> connections;
+		try {
+			// how to seperate the context from UI and normal Plugin ?? 
+			// it seems that we firstly get parameters like configuration from UIPluginContext 
+			// then we give it to PluginContext, there we test if the connection already exists.
+			connections =  context.getConnectionManager().getConnections(ReplayFilteringConnection.class, context, log, net, params);
+			for (ReplayFilteringConnection connection : connections) {
+				if (connection.getObjectWithRole(ReplayFilteringConnection.LOG).equals(log)
+						&& connection.getObjectWithRole(ReplayFilteringConnection.FILTER_PARAMETERS).equals(params.getThreshold())) {
+					return (ReplayFilteringResult) connection.getObjectWithRole(ReplayFilteringConnection.REPLAY_RESULT);
+				}
+			}
+		} catch (ConnectionCannotBeObtained e) {
+		}
 		
 		netReplayState(context, net, log);
         // after it, we compare them to threshold
 		XLogInfo info  = XLogInfoFactory.createLogInfo(log); //
+		int traceNum = info.getNumberOfTraces();
 		
-		int threshold = (int) (info.getNumberOfTraces() * params.getThreshold()*0.01);
+		int threshold = (int) (traceNum * params.getThreshold()*0.01);
 		NetUtilities.markPlaces(net, threshold);
-		return net;
+		ReplayFilteringResult result = new ReplayFilteringResult(net,traceNum);
+		if (context.getProgress().isCancelled()) {
+			context.getFutureResult(0).cancel(true);
+			return null;
+		}
+		// how could we add connection again?? so threshold is 0-100
+		context.addConnection(new ReplayFilteringConnection(log, net, params.getThreshold(),result));
+		return result; 
 	}
 	
 	// store the fit and unfitNum into petri net
-	private void netReplayState(UIPluginContext context, Petrinet net, XLog log) {
+	private void netReplayState(PluginContext context, Petrinet net, XLog log) {
 		
 		Collection<Place> places = net.getPlaces();
 		// Map<Place, Integer> placeFreq = initPlaceFreq(places); 
@@ -104,6 +125,7 @@ public class ReplayPlaces {
         	initPlaceAttribute(places);
         	countPlaceFreq(variants.get(i), net, transMap);
         }
+        
         
 	}
 
