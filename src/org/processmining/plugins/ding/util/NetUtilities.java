@@ -92,7 +92,9 @@ public class NetUtilities {
         	}
         }
 		
-		// clear net and delete the bad transition 
+	}
+	public static void clearNet(Petrinet net) {
+		// clear net and delete the isolate nodes in the petri net
 		Collection<PetrinetNode> nodes = net.getNodes();
 		PetrinetNode n;
 		Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> preset = null;
@@ -110,7 +112,6 @@ public class NetUtilities {
 			}
 		}
 	}
-	
 
 	public static void markPlaces(Petrinet net, int threshold) {
 		// markPlaces it needs,.maybe before it is not marked, and we mark it again
@@ -123,8 +124,10 @@ public class NetUtilities {
             // int totalNum = ((int)(place.getAttributeMap().get("unFitNum")) + (int)(place.getAttributeMap().get("fitNum"))); 
            
             if((Integer)(place.getAttributeMap().get("unFitNum")) > threshold) {
-            	// net.removePlace(place);
-            	// firstly we just color the place.. How could we add some color to places??? and then draw them out???
+            	// some thing here is wrong, I set threshold 20%, all places are wrong
+            	// 80 two places are wrong. but 90 it change... 
+            	// we need to debug this error.
+            	// remove places that are not replayable in more than 20% cases. 
             	place.getAttributeMap().put("isMarked", true);
             }else {
             	place.getAttributeMap().put("isMarked", false);

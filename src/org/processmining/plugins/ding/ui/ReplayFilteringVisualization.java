@@ -59,6 +59,10 @@ class ReplayMainView extends JPanel{
 		
 		leftView = new ShowView(context, result);
 		rightView = new PlaceControlView();
+		
+		RelativeLayout rl = new RelativeLayout(RelativeLayout.X_AXIS);
+		rl.setFill( true );
+		this.setLayout(rl);
 		// the easist way to add threshold is to add into result, but it violates the design pattern
 		// so we get it better from context and find the connection for it 
 		Collection<ReplayFilteringConnection> connections;
@@ -81,8 +85,8 @@ class ReplayMainView extends JPanel{
 		leftView.setRightView(rightView);
 		rightView.setLeftView(leftView);
 		
-		this.add(this.leftView, new Float(70));
-		this.add(this.rightView, new Float(30));
+		this.add(this.leftView, new Float(80));
+		this.add(this.rightView, new Float(20));
 		
 		leftView.drawResult();
 	}
@@ -106,16 +110,17 @@ class PlaceControlView extends JPanel{
 	// from place control view, we get parameter to delete or color places
 	public PlaceControlView() {
 		
-		this.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-		this.setBackground(COLOR_BG2);
-		this.setOpaque(true);
-		this.setLayout(new BorderLayout());
+		RelativeLayout rl = new RelativeLayout(RelativeLayout.Y_AXIS);
+		rl.setFill( true );
+		this.setLayout(rl);
 		
 		// right filter panel for threshold input
 		JPanel thresholdPanel = new JPanel();
+		thresholdPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+		thresholdPanel.setBackground(COLOR_BG2);
+		thresholdPanel.setOpaque(true);
+		thresholdPanel.setLayout(new BorderLayout());
 		
-		thresholdPanel.setOpaque(false);
-		thresholdPanel.setLayout(new BoxLayout(thresholdPanel, BoxLayout.Y_AXIS));
 		JLabel nodeSigSliderLabel = new JLabel("Replayable Threshold");
 		nodeSigSliderLabel.setFont(this.smallFont);
 		nodeSigSliderLabel.setOpaque(false);
@@ -156,7 +161,7 @@ class PlaceControlView extends JPanel{
 				+ "events are shown increasing the detail <br>" + "and complexity of the model.</html>");
 		thresholdPanel.add(thresholdSlider, BorderLayout.CENTER);
 		
-		this.add(thresholdPanel, BorderLayout.CENTER);
+		this.add(thresholdPanel);
 		
 		
 		// add for radioButton to combine 
@@ -222,7 +227,7 @@ class PlaceControlView extends JPanel{
 		colorDeletePanel.add(deleteRadioButton);
 		colorDeletePanel.add(Box.createVerticalStrut(5));
 		
-		this.add(colorDeletePanel, BorderLayout.SOUTH);
+		this.add(colorDeletePanel);
 	}
 
 	protected void centerHorizontally(JLabel label) {
@@ -268,9 +273,15 @@ class ShowView extends JPanel{
 	
 	ProMJGraph graph;
 	JComponent graphComponent;
+	//ProMJGraphPanel graphPanel;
 	
 	// we accept Petrinet and then create one graph from it 
 	public ShowView(PluginContext context, ReplayFilteringResult result) {
+		
+		RelativeLayout rl = new RelativeLayout(RelativeLayout.X_AXIS);
+		rl.setFill( true );
+		this.setLayout(rl);
+		
 		this.context = context;
 		this.result = result;
 		this.net = result.getFPN();
@@ -361,6 +372,9 @@ class ShowView extends JPanel{
 		}else {
 			colorGraph();
 		}
+		
+		// graphPanel = ProMJGraphVisualizer.instance().visualizeGraph(context, (DirectedGraph<?, ?>) graph);
+		// graphPanel.getGraph().setEditable(false);
 		return graph.getComponent();
 	}
 	
