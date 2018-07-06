@@ -12,11 +12,8 @@ import org.deckfour.xes.info.XLogInfo;
 import org.deckfour.xes.info.XLogInfoFactory;
 import org.deckfour.xes.model.XLog;
 import org.processmining.contexts.uitopia.UIPluginContext;
-import org.processmining.contexts.uitopia.annotations.UITopiaVariant;
 import org.processmining.framework.connections.ConnectionCannotBeObtained;
 import org.processmining.framework.plugin.PluginContext;
-import org.processmining.framework.plugin.annotations.Plugin;
-import org.processmining.framework.plugin.annotations.PluginVariant;
 import org.processmining.framework.util.ui.wizard.ListWizard;
 import org.processmining.framework.util.ui.wizard.ProMWizardDisplay;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
@@ -42,18 +39,8 @@ import org.processmining.plugins.ding.util.TraceVariant;
  *
  */
 
-
-@Plugin(
-		name = "Filtering Places 2nd Versionw.r.t Replayability",
-		parameterLabels = {"Event log", "Petri Net"},
-		returnLabels = { "Filtered Resultl"},
-		returnTypes = {ReplayFilteringResult.class},
-		userAccessible = true,
-		help = "Filtering Places in A Petri Net w.r.t frequency")
 public class ReplayPlaces {
 	
-	@UITopiaVariant(affiliation = UITopiaVariant.EHV, author = "Kefang Ding", email = "ding@rwth-aachen.de")
-	@PluginVariant(variantLabel = "From Petri net and Event Log", requiredParameterLabels = { 0, 1 })
 	public ReplayFilteringResult filteringByReplay(final UIPluginContext context, Petrinet net, XLog log)
 			throws ConnectionCannotBeObtained {
 		
@@ -67,13 +54,35 @@ public class ReplayPlaces {
 			return filteringNet(context, nnet, log, params);
 		}else {
 			System.out.println("No parameters are set... So return original");
-			return new ReplayFilteringResult(net, -1);
+			return new ReplayFilteringResult(net);
 		}
+	}
+	
+	public static void markPlaces(Petrinet net, int threshold) {
+		// markPlaces it needs,.maybe before it is not marked, and we mark it again
+		Collection<Place> places = net.getPlaces();
+        Iterator iter = places.iterator();
+        while (iter.hasNext()) {
+        	// pair<Arc, count>
+            Place place = (Place)iter.next();
+            // to test the totoalNum and the trace numbers
+            // int totalNum = ((int)(place.getAttributeMap().get("unFitNum")) + (int)(place.getAttributeMap().get("fitNum"))); 
+           
+            if((Integer)(place.getAttributeMap().get("unFitNum")) > threshold) {
+            	// some thing here is wrong, I set threshold 20%, all places are wrong
+            	// 80 two places are wrong. but 90 it change... 
+            	// we need to debug this error.
+            	// remove places that are not replayable in more than 20% cases. 
+            	place.getAttributeMap().put("isMarked", true);
+            }else {
+            	place.getAttributeMap().put("isMarked", false);
+            }
+        }
 	}
 	// two ways to separate the programs, one is to get sammary info and it could be used later
 	// one it to accept the threshold and then only work on that.. For me, I'd like to choose 
 	// get summary at first and then threshold later
-	private ReplayFilteringResult filteringNet(PluginContext context, Petrinet net, XLog log, FilteringParameters params) {
+	public static  ReplayFilteringResult filteringNet(PluginContext context, Petrinet net, XLog log, FilteringParameters params) {
 		
 		Collection<ReplayFilteringConnection> connections;
 		try {
@@ -96,8 +105,8 @@ public class ReplayPlaces {
 		int traceNum = info.getNumberOfTraces();
 		
 		int threshold = (int) (traceNum * params.getThreshold()*0.01);
-		NetUtilities.markPlaces(net, threshold);
-		ReplayFilteringResult result = new ReplayFilteringResult(net,traceNum);
+		ReplayPlaces.markPlaces(net, threshold);
+		ReplayFilteringResult result = new ReplayFilteringResult(net);
 		if (context.getProgress().isCancelled()) {
 			context.getFutureResult(0).cancel(true);
 			return null;
@@ -108,7 +117,7 @@ public class ReplayPlaces {
 	}
 	
 	// store the fit and unfitNum into petri net
-	private void netReplayState(PluginContext context, Petrinet net, XLog log) {
+	public static void  netReplayState(PluginContext context, Petrinet net, XLog log) {
 		
 		Collection<Place> places = net.getPlaces();
 		// Map<Place, Integer> placeFreq = initPlaceFreq(places); 
@@ -129,7 +138,7 @@ public class ReplayPlaces {
         
 	}
 
-	private void countPlaceFreq(TraceVariant traceVariant, Petrinet net, Map<XEventClass, Transition> transMap) {
+	public static void countPlaceFreq(TraceVariant traceVariant, Petrinet net, Map<XEventClass, Transition> transMap) {
 		// Count the unfit Freq of places in Petri net, maybe also the fitted number.
 		// Whatever we don't need actually the map from Place to its Frequency.
 		int curCount  = traceVariant.getCount();
@@ -201,7 +210,7 @@ public class ReplayPlaces {
 		
 	}
 
-	private void initPlaceFreq(Collection<Place> places) {
+	public static void initPlaceFreq(Collection<Place> places) {
 		Iterator piter = places.iterator();
 		while(piter.hasNext()) {
 			Place place = (Place) piter.next();
@@ -213,7 +222,7 @@ public class ReplayPlaces {
 		}
 	}
 	
-	private void initPlaceAttribute(Collection<Place> places) {
+	public static void initPlaceAttribute(Collection<Place> places) {
 		Iterator piter = places.iterator();
 		while(piter.hasNext()) {
 			Place place = (Place) piter.next();
@@ -225,7 +234,7 @@ public class ReplayPlaces {
 	}
 	
 	
-	private List<Transition> getTraceSeq(TraceVariant traceVariant, Map<XEventClass, Transition> transMap) {
+	private static List<Transition> getTraceSeq(TraceVariant traceVariant, Map<XEventClass, Transition> transMap) {
 		// TODO Auto-generated method stub
 		List<XEventClass> traceSeq = traceVariant.getTraceVariant();
 		List<Transition> seq = new ArrayList<Transition>();
@@ -235,4 +244,17 @@ public class ReplayPlaces {
 		return seq;
 	}
 	
+	// if all places under threshold 0 fits, return 1, else 0
+	public static boolean fitNet(Petrinet net) {
+		
+		Iterator piter = net.getPlaces().iterator();
+		while(piter.hasNext()) {
+			Place place = (Place) piter.next();
+			if((boolean) place.getAttributeMap().get("isMarked")) {
+				return false;
+			}
+		
+		}
+		return true;
+	}
 }

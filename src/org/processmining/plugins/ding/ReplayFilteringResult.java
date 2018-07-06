@@ -1,5 +1,6 @@
 package org.processmining.plugins.ding;
 
+import org.deckfour.xes.model.XLog;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
 
 /**
@@ -12,36 +13,34 @@ public class ReplayFilteringResult {
 	Petrinet net;
 	// then filtered Petrinet, this is to get the control from that part 
 	Petrinet fnet;
-	int traceNum;
-	double threshold;
 	
-	public double getThreshold() {
-		return threshold;
-	}
-	public void setThreshold(double threshold) {
-		this.threshold = threshold;
+	XLog flog;
+	
+	public ReplayFilteringResult() {
+		// TODO Auto-generated constructor stub
 	}
 	public ReplayFilteringResult(Petrinet fnet) {
 		this.fnet = fnet;
 	}
-	public ReplayFilteringResult(Petrinet fnet, int traceNum) {
-		this.fnet = fnet;
-		this.traceNum = traceNum;
+
+	public Petrinet getNet() {
+		return net;
 	}
-	public void setFPN(Petrinet fnet) {
-		this.fnet = fnet;
+	public void setNet(Petrinet net) {
+		this.net = net;
 	}
-	
-	public Petrinet getFPN() {
+	public Petrinet getFnet() {
 		return fnet;
 	}
+	public void setFnet(Petrinet fnet) {
+		this.fnet = fnet;
+	}
+	public XLog getFLog() {
+		return flog;
+	}
+	public void setFLog(XLog flog) {
+		this.flog = flog;
+	}
 
-	public int getTraceNum() {
-		// TODO Auto-generated method stub
-		return traceNum;
-	}
 	
-	public void setTraceNum(int traceNum) {
-		this.traceNum = traceNum;
-	}
 }

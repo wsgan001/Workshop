@@ -113,27 +113,7 @@ public class NetUtilities {
 		}
 	}
 
-	public static void markPlaces(Petrinet net, int threshold) {
-		// markPlaces it needs,.maybe before it is not marked, and we mark it again
-		Collection<Place> places = net.getPlaces();
-        Iterator iter = places.iterator();
-        while (iter.hasNext()) {
-        	// pair<Arc, count>
-            Place place = (Place)iter.next();
-            // to test the totoalNum and the trace numbers
-            // int totalNum = ((int)(place.getAttributeMap().get("unFitNum")) + (int)(place.getAttributeMap().get("fitNum"))); 
-           
-            if((Integer)(place.getAttributeMap().get("unFitNum")) > threshold) {
-            	// some thing here is wrong, I set threshold 20%, all places are wrong
-            	// 80 two places are wrong. but 90 it change... 
-            	// we need to debug this error.
-            	// remove places that are not replayable in more than 20% cases. 
-            	place.getAttributeMap().put("isMarked", true);
-            }else {
-            	place.getAttributeMap().put("isMarked", false);
-            }
-        }
-	}
+
 	
 	public static Petrinet clone(Petrinet net) {
 		Petrinet cnet = PetrinetFactory.clonePetrinet(net);

@@ -48,7 +48,6 @@ public class FilteringUI {
 		ListWizard<AlphaMinerParameters> listWizard = new ListWizard<>(wizStepList);
 		AlphaMinerParameters params = ProMWizardDisplay.show(context, listWizard, new AlphaMinerParameters());
 
-		parameters.setPetrinetStatus();
 		parameters.setAlphaParameters(params);
 		parameters.setEventClassifier(wizStep.getEventClassifier());
 		

@@ -106,38 +106,22 @@ public class FilteringFrequentEventLog {
 		}
 		
 		XLog filtered_log = filtering(context, log, parameters);
-		// save filtered log
-		/** First way to use one specific export interface
-		if(parameters.isSaveFile()) {
-			try {
-				EventLogUtilities.exportSingleLog(filtered_log, parameters.getSaveFileName());
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-		}
-		// second method to use context embedded in ProM
-		*/
-		// context.getProvidedObjectManager().createProvidedObject("Filtered Log", filtered_log, XLog.class, context);
-		// third method, do nothing , but change to ALl and get filtered log
 		Petrinet net =null; 
 		Marking marking = null;
-		if(!parameters.isNoPetrinet()) {
-			// we need to put the AlphaMining on this data
-			// apply(context, log, wizStep.getEventClassifier(), params);
-			Object[] markedNet = AlphaMinerPlugin.apply(context, filtered_log, parameters.getEventClassifier(),
-					parameters.getAlphaMinerParameters());
-			
-			net = (Petrinet)markedNet[0];
-			marking = (Marking)markedNet[1];
-			// 
-		}
-		// here we need more thing to say..
+		
+		// we need to put the AlphaMining on this data
+		// apply(context, log, wizStep.getEventClassifier(), params);
+		Object[] markedNet = AlphaMinerPlugin.apply(context, filtered_log, parameters.getEventClassifier(),
+				parameters.getAlphaMinerParameters());
+		
+		net = (Petrinet)markedNet[0];
+		marking = (Marking)markedNet[1];
+		
 		if (context.getProgress().isCancelled()) {
 			context.getFutureResult(0).cancel(true);
 			return new Object[] { null, null };
 		}
-		context.addConnection(new FilteringConnection(log, net, marking,  filtered_log, parameters));
+		context.addConnection(new FilteringConnection(log, net, filtered_log, parameters));
 		return new Object[] { net, marking, filtered_log};
 	}
 	
