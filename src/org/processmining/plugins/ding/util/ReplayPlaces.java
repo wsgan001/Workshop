@@ -1,4 +1,4 @@
-package org.processmining.plugins.ding;
+package org.processmining.plugins.ding.util;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,9 +23,10 @@ import org.processmining.models.graphbased.directed.petrinet.elements.Arc;
 import org.processmining.models.graphbased.directed.petrinet.elements.Place;
 import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
 import org.processmining.models.graphbased.directed.petrinet.impl.PetrinetFactory;
-import org.processmining.plugins.ding.util.EventLogUtilities;
-import org.processmining.plugins.ding.util.NetUtilities;
-import org.processmining.plugins.ding.util.TraceVariant;
+import org.processmining.plugins.ding.FilteringParameters;
+import org.processmining.plugins.ding.ReplayFilteringConnection;
+import org.processmining.plugins.ding.ReplayFilteringDialog;
+import org.processmining.plugins.ding.ReplayFilteringResult;
 
 /**
  * I know I'm close to it, but I don't like to discuss it further. The task is not so clearly defined for me
@@ -62,12 +63,18 @@ public class ReplayPlaces {
 		// markPlaces it needs,.maybe before it is not marked, and we mark it again
 		Collection<Place> places = net.getPlaces();
         Iterator iter = places.iterator();
+        int fnum = 0;
         while (iter.hasNext()) {
         	// pair<Arc, count>
             Place place = (Place)iter.next();
             // to test the totoalNum and the trace numbers
-            // int totalNum = ((int)(place.getAttributeMap().get("unFitNum")) + (int)(place.getAttributeMap().get("fitNum"))); 
-           
+            /** After test they are the same, so no need to test them ..
+            int totalNum = ((int)(place.getAttributeMap().get("unFitNum")) + (int)(place.getAttributeMap().get("fitNum")));
+            if(fnum!=0 && totalNum != fnum ) {
+            	fnum = totalNum;
+            	System.out.println("at place "+ place.getLabel()+" we have numer "+ totalNum);
+            }
+            */
             if((Integer)(place.getAttributeMap().get("unFitNum")) > threshold) {
             	// some thing here is wrong, I set threshold 20%, all places are wrong
             	// 80 two places are wrong. but 90 it change... 
