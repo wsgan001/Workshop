@@ -19,6 +19,7 @@ import org.deckfour.xes.out.XSerializer;
 import org.deckfour.xes.out.XesXmlSerializer;
 import org.processmining.models.graphbased.AttributeMap;
 import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
+import org.processmining.plugins.ding.FilteringParameters;
 
 /**
  * This class includes the basic information about Event log 
@@ -29,17 +30,21 @@ import org.processmining.models.graphbased.directed.petrinet.elements.Transition
 public class EventLogUtilities {
 
 	
-	public static List<TraceVariant> getTraceVariants( XLog log) {
+	public static List<TraceVariant> getTraceVariants( XLog log, FilteringParameters parameters) {
 		// TODO Auto-generated method stub
 		
 		List<TraceVariant> variants = new ArrayList<TraceVariant>();
-		XLogInfo info  = XLogInfoFactory.createLogInfo(log); //
+		if(parameters.getInfo() == null) {
+		      parameters.setInfo(XLogInfoFactory.createLogInfo(log)); //
+		}
+		
+		XLogInfo info = parameters.getInfo();
 		XEventClass eventClass = null;
 		for (XTrace trace : log) {
 				
 				List<XEventClass> toTraceClass = new ArrayList<XEventClass>();
 				for (XEvent toEvent : trace) {
-					eventClass = info.getEventClasses().getClassOf(toEvent);
+					eventClass = info.getEventClasses(parameters.getEventClassifier()).getClassOf(toEvent);
 					toTraceClass.add(eventClass);	
 				}
 				

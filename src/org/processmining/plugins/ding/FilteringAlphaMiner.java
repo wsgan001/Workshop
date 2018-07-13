@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.deckfour.xes.classification.XEventClass;
+import org.deckfour.xes.classification.XEventClasses;
 import org.deckfour.xes.info.XLogInfo;
 import org.deckfour.xes.info.XLogInfoFactory;
 import org.deckfour.xes.model.XAttributeMap;
@@ -21,8 +23,10 @@ import org.processmining.framework.plugin.PluginContext;
 import org.processmining.framework.plugin.annotations.Plugin;
 import org.processmining.framework.plugin.annotations.PluginVariant;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
+import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
 import org.processmining.plugins.ding.ui.FilteringUI;
 import org.processmining.plugins.ding.util.EventLogUtilities;
+import org.processmining.plugins.ding.util.ReplayPlaces;
 import org.processmining.plugins.ding.util.TraceVariant;
 
 /**
@@ -49,7 +53,7 @@ import org.processmining.plugins.ding.util.TraceVariant;
 
 @Plugin(
 		name = "Alpha Miner with Filtering",
-		parameterLabels = {"Event log"}, 
+		parameterLabels = {"Event log", "Petrinet"}, 
 		returnLabels = { "Filtered Resultl", "Petrinet", "Filtered Log"},
 		returnTypes = {FilteringAlphaMinerResult.class, Petrinet.class, XLog.class}, 
 		// one problem, how to show the other output files?? Consider later.. 
@@ -62,10 +66,34 @@ import org.processmining.plugins.ding.util.TraceVariant;
 public class FilteringAlphaMiner {
 	
 	/*
-	 * we add one more method to generate the final result, but how about the final result???
-	 * need to add the filtered petri net on it ...
-	 *  
+	 * Add one more method, use more parameters for input parameters it works
+	 * But then later, we need to have online control, so we need to get the result with net and event log into it
 	 */
+
+	@UITopiaVariant(affiliation = "RWTH Aachen", author = "Kefang", email = "***@gmail.com")
+	@PluginVariant(variantLabel = "Replay Log with Petri net",  requiredParameterLabels = { 0, 1})
+	public Object[] replayAlphaMiner(UIPluginContext context, XLog log, Petrinet net) {
+		Collection<FilteringAlphaMinerConnection> connections;
+		try {
+			connections =  context.getConnectionManager().getConnections(FilteringAlphaMinerConnection.class, context, log);
+			for (FilteringAlphaMinerConnection connection : connections) {
+				if ( connection.getObjectWithRole(FilteringAlphaMinerConnection.LABEL).equals(FilteringAlphaMinerConnection.connectGenerateModelType)
+						&&connection.getObjectWithRole(FilteringAlphaMinerConnection.LOG).equals(log)
+						&& ((FilteringParameters)connection.getObjectWithRole(FilteringAlphaMinerConnection.PN)).getAlphaMinerParameters().equals(net) 
+						) {
+					return connection.getObjectWithRole(FilteringAlphaMinerConnection.RESULT);
+				}
+			}
+		} catch (ConnectionCannotBeObtained e) {
+		}
+		
+		FilteringAlphaMinerResult result = new FilteringAlphaMinerResult(); 
+		result.setNet(net);
+		result.setFLog(log);
+		
+		context.addConnection(new FilteringAlphaMinerConnection(log, null, result));
+		return new Object[] {result,  result.getNet(), result.getFLog()};
+	}
 	
 	@UITopiaVariant(affiliation = "RWTH Aachen", author = "Kefang", email = "***@gmail.com")
 	@PluginVariant(variantLabel = "Mining after Filtering Log",  requiredParameterLabels = { 0})
@@ -100,6 +128,9 @@ public class FilteringAlphaMiner {
 		FilteringAlphaMinerResult result = new FilteringAlphaMinerResult(); 
 		result.setNet((Petrinet) midResults[0]);
 		result.setFLog((XLog) midResults[1]);
+		// here for test data..
+		ReplayPlaces.netReplayState(context, result.getNet(), log, parameters);
+		
 		context.addConnection(new FilteringAlphaMinerConnection(log, parameters, result));
 		return new Object[] {result,  result.getNet(), result.getFLog()};
 	}
@@ -117,13 +148,21 @@ public class FilteringAlphaMiner {
 		Object[] markedNet = AlphaMinerPlugin.apply(context, filtered_log, parameters.getEventClassifier(),
 				parameters.getAlphaMinerParameters());
 		
-		net = (Petrinet)markedNet[0];
-		// marking = (Marking)markedNet[1];
-		
 		if (context.getProgress().isCancelled()) {
 			context.getFutureResult(0).cancel(true);
 			return new Object[] { null, null };
 		}
+		
+		net = (Petrinet)markedNet[0];
+		// we create map here
+		if(parameters.getInfo()==null) {
+			XLogInfo info  = XLogInfoFactory.createLogInfo(log); 
+			parameters.setInfo(info);
+		}
+		
+		XEventClasses eventClasses = parameters.getInfo().getEventClasses(parameters.getEventClassifier());
+		Map<XEventClass,Transition >  transMap = EventLogUtilities.getEventTransitionMap(eventClasses, net.getTransitions());
+		parameters.setMap(transMap);		
 		
 		return new Object[] { net, filtered_log};
 	}
@@ -135,20 +174,31 @@ public class FilteringAlphaMiner {
 		// System.out.println(parameters.getThreshold());
 		// we have different parameters and do threee filtering
 		XLog filtered_log = null;
-		
+		List<TraceVariant> variants = null;
 		//here before we do filtering, we need to get the variants information of the event log
-		List<TraceVariant> variants =  EventLogUtilities.getTraceVariants(log);
-		XLogInfo info  = XLogInfoFactory.createLogInfo(log); //
-		int traceNum = info.getNumberOfTraces();
+		
+		// I will put it into Parameters for the next operation and then generate the Map for it
+		if(parameters.getInfo()==null) {
+			XLogInfo info  = XLogInfoFactory.createLogInfo(log); 
+			parameters.setInfo(info);
+		}
+		
+		if(parameters.getVariants() == null) {
+			variants =  EventLogUtilities.getTraceVariants(log, parameters);
+			parameters.setVariants(variants);
+		}
+		variants = parameters.getVariants();
+		
+		int traceNum = parameters.getInfo().getNumberOfTraces();
 		parameters.setTraceNum(traceNum);
 		parameters.setVariantNum(variants.size());
 		
 		if(parameters.getFilterType().equals("Variant Over One ThresHold")) {
-			filtered_log= filterOverEachVariants(log, variants, parameters.getThreshold());
+			filtered_log= filterOverEachVariants(log, variants, parameters);
 		}else if(parameters.getFilterType().equals("Cumulative Frequency Over One Threshold")) {
-			filtered_log = filterCumulativeVariants( log, variants, parameters.getThreshold());
+			filtered_log = filterCumulativeVariants( log, variants, parameters);
 		}else if(parameters.getFilterType().equals("Choose Top N Vairants")) {
-			filtered_log = filterTopVariants( log, variants, parameters.getThreshold()); // 
+			filtered_log = filterTopVariants( log, variants, parameters); // 
 		}else {
 			filtered_log = log;
 		}
@@ -163,12 +213,12 @@ public class FilteringAlphaMiner {
 	 *       if it's -n, then we choose the variants with lowest counts.
 	 * @return filtered log
 	 */
-	private XLog filterTopVariants( XLog log, List<TraceVariant> variants, double threshold) {
+	private XLog filterTopVariants( XLog log, List<TraceVariant> variants, FilteringParameters parameters) {
 		List<TraceVariant> keptVariants = null;
 		// we need to sort variants at first 
 		Collections.sort(variants, TraceVariant.COMPARE_BY_COUNT);
 		// min to make sure it's not over the size in positive, max to make sure not over on the negative side.
-		int int_threshold = (int) (Math.max(-variants.size(), Math.min(threshold, variants.size())));
+		int int_threshold = (int) (Math.max(-variants.size(), Math.min(parameters.getThreshold(), parameters.getVariantNum())));
 		if(int_threshold > 0) {
 			// we choose the top ones
 			keptVariants = variants.subList(variants.size() - int_threshold, variants.size());
@@ -179,15 +229,14 @@ public class FilteringAlphaMiner {
 			System.out.println("We don't choose data and go back??? ");
 		}
 		
-		XLog nlog = filterByTrace(log, keptVariants);
+		XLog nlog = filterByTrace(log, keptVariants,parameters);
 		return nlog;
 	}
 
-	private XLog filterCumulativeVariants( XLog log, List<TraceVariant> variants, double percentage) {
+	private XLog filterCumulativeVariants( XLog log, List<TraceVariant> variants, FilteringParameters parameters) {
 		
-		XLogInfo info  = XLogInfoFactory.createLogInfo(log);
 		// we allow negative and positive threshold
-		int threshold = (int) (info.getNumberOfTraces() * percentage);
+		int threshold = (int) (parameters.getTraceNum()* parameters.getThreshold());
 		
 		// This need some cumulation on the counts columns and we need to give it
 		// we need to sort variants at first 
@@ -223,7 +272,7 @@ public class FilteringAlphaMiner {
 		// after this we get the variants which is in an ascending order.  
 		// from last element we add it up to i and when the sum(i) > threshold and sum(i-1) < threshold,
 		// we choose until i-1		
-		XLog nlog = filterByTrace(log, keptVariants);
+		XLog nlog = filterByTrace(log, keptVariants,parameters);
 		return nlog;
 	}
     /**
@@ -233,11 +282,9 @@ public class FilteringAlphaMiner {
      * @param threshold
      * @return filtered log with kept variants
      */
-	private  XLog filterOverEachVariants(XLog log, List<TraceVariant> variants, double percentage) {
-		XLogInfo info  = XLogInfoFactory.createLogInfo(log);
-		XLog nlog = null;
+	private  XLog filterOverEachVariants(XLog log, List<TraceVariant> variants, FilteringParameters parameters) {
 		
-		int threshold = (int) (info.getNumberOfTraces() * percentage);
+		int threshold = (int) (parameters.getTraceNum()* parameters.getThreshold());
 		
 		List<TraceVariant> keptVariants = new ArrayList<TraceVariant>();
 		for(int index =0; index<variants.size(); index++) {
@@ -245,7 +292,7 @@ public class FilteringAlphaMiner {
 				keptVariants.add(variants.get(index));
 			}
 		}
-		nlog = filterByTrace(log, keptVariants);
+		XLog nlog = filterByTrace(log, keptVariants, parameters);
 		return nlog;
 	}	
 	
@@ -254,11 +301,10 @@ public class FilteringAlphaMiner {
 	 * filter xlog and keep the Xtrace in the traceVariants left.
 	 * Better to use it should be like only to use traceVariants
 	 */
-	private XLog filterByTrace(XLog log, List<TraceVariant> keptVariants) {
+	private XLog filterByTrace(XLog log, List<TraceVariant> keptVariants, FilteringParameters parameters) {
 		// traverse the xlog and compare if it is into the set of traceVariants?? 
 		// if it is contained , then keep it in the new log file
 		// else, ignore it
-		XLogInfo info  = XLogInfoFactory.createLogInfo(log); 
 		XEventClass eventClass = null;
 		// here is some time wasted, cause the clone and then clear, maybe we could just 
 		XLog nlog = new XLogImpl((XAttributeMap) log.getAttributes().clone());
@@ -268,7 +314,7 @@ public class FilteringAlphaMiner {
 		for (XTrace trace : log) {
 			List<XEventClass> traceClass = new ArrayList<XEventClass>();
 			for (XEvent toEvent : trace) {
-				eventClass = info.getEventClasses().getClassOf(toEvent);
+				eventClass = parameters.getInfo().getEventClasses(parameters.getEventClassifier()).getClassOf(toEvent);
 				traceClass.add(eventClass);	
 				
 			}

@@ -18,6 +18,7 @@ public class FilteringAlphaMinerConnection extends AbstractStrongReferencingConn
 	public final static String LABEL = null;
 	public final static String connectGenerateModelType = "Connection for Generating Model";
 	public final static String connectReplayType = "Connection for Online Replay Filtering";
+	public final static String connectOnlyReplay = "Connection for Only Online Replay";
     
 	// we need to create two types of connection 
 	// one for filtering event log, one for the replay filtering
@@ -34,6 +35,14 @@ public class FilteringAlphaMinerConnection extends AbstractStrongReferencingConn
 		// we skip out the FilteringResult to put them seperately
 		put(PN, net);
 		put(FLOG, flog);
+	}
+    
+    public FilteringAlphaMinerConnection(XLog log, FilteringAlphaMinerResult result) {
+    	super(connectOnlyReplay);
+		put(LABEL, connectOnlyReplay);
+		put(LOG, log);
+		// we skip out the FilteringResult to put them seperately
+		put(RESULT, result);
 	}
     
     public FilteringAlphaMinerConnection(XLog log, FilteringParameters parameters, FilteringAlphaMinerResult result) {

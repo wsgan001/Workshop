@@ -1,8 +1,15 @@
 package org.processmining.plugins.ding;
 
+import java.util.List;
+import java.util.Map;
+
+import org.deckfour.xes.classification.XEventClass;
 import org.deckfour.xes.classification.XEventClassifier;
+import org.deckfour.xes.info.XLogInfo;
 import org.processmining.alphaminer.parameters.AlphaMinerParameters;
 import org.processmining.models.graphbased.directed.petrinet.Petrinet;
+import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
+import org.processmining.plugins.ding.util.TraceVariant;
 
 /**
  * Parameters for the mining of a workshop model from an event log.
@@ -42,6 +49,13 @@ public class FilteringParameters {
 	private AlphaMinerParameters alphaParas;
 	XEventClassifier eventClassifier ;
 	
+	// to create a map connecting Eventlog and Petri net
+	Map<XEventClass, Transition> map ;
+	XLogInfo info;
+	List<TraceVariant> variants;
+
+
+	
 	private Petrinet net;
 	int traceNum;
 	double replayThreshold;
@@ -60,6 +74,29 @@ public class FilteringParameters {
 		this.alphaParas = alphaParas;
 	}
 	
+	public Map<XEventClass, Transition> getMap() {
+		return map;
+	}
+
+	public void setMap(Map<XEventClass, Transition> map) {
+		this.map = map;
+		// how to generate it ?? We need information from AlphaMinerParameters and find its classes
+	}
+	public List<TraceVariant> getVariants() {
+		return variants;
+	}
+
+	public void setVariants(List<TraceVariant> variants) {
+		this.variants = variants;
+	}
+
+	public XLogInfo getInfo() {
+		return info;
+	}
+
+	public void setInfo(XLogInfo info) {
+		this.info = info;
+	}
 	
 	public double getReplayThreshold() {
 		return replayThreshold;
@@ -177,6 +214,5 @@ public class FilteringParameters {
 	public void setNet(Petrinet net) {
 		this.net = net;
 	}
-
 
 }

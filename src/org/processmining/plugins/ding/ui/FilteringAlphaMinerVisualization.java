@@ -50,7 +50,7 @@ public class FilteringAlphaMinerVisualization {
 		}
 		// result has original net and filtered event log
 		Petrinet net = result.getNet();
-		ReplayPlaces.netReplayState(context, net, log);
+		ReplayPlaces.netReplayState(context, net, log, parameters);
 		result.setNet(net);
 		// but at first we just display the original graph and then we add some replay threshold to it
 		return new ReplayMainView(context, result, parameters);

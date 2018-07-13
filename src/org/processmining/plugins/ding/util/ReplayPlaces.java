@@ -2,12 +2,12 @@ package org.processmining.plugins.ding.util;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 import org.deckfour.xes.classification.XEventClass;
-import org.deckfour.xes.classification.XEventClasses;
 import org.deckfour.xes.info.XLogInfo;
 import org.deckfour.xes.info.XLogInfoFactory;
 import org.deckfour.xes.model.XLog;
@@ -106,7 +106,7 @@ public class ReplayPlaces {
 		} catch (ConnectionCannotBeObtained e) {
 		}
 		
-		netReplayState(context, net, log);
+		netReplayState(context, net, log, params);
         // after it, we compare them to threshold
 		XLogInfo info  = XLogInfoFactory.createLogInfo(log); //
 		int traceNum = info.getNumberOfTraces();
@@ -124,18 +124,18 @@ public class ReplayPlaces {
 	}
 	
 	// store the fit and unfitNum into petri net
-	public static void  netReplayState(PluginContext context, Petrinet net, XLog log) {
+	public static void  netReplayState(PluginContext context, Petrinet net, XLog log, FilteringParameters parameters) {
 		
 		Collection<Place> places = net.getPlaces();
 		// Map<Place, Integer> placeFreq = initPlaceFreq(places); 
 		initPlaceFreq(places);
         
-		XLogInfo info  = XLogInfoFactory.createLogInfo(log); //
-		XEventClasses eventClasses = info.getEventClasses();
         // should we hide it, then we don't need to see it so often?? 
-        Map<XEventClass,Transition >  transMap = EventLogUtilities.getEventTransitionMap(eventClasses, net.getTransitions());
-        List<TraceVariant> variants =  EventLogUtilities.getTraceVariants(log);
+        // the easier way is to put transMap into Filtering Parameter..
+		Map<XEventClass,Transition >  transMap = parameters.getMap();
+        List<TraceVariant> variants =  parameters.getVariants();
         
+        // variants we could reuse and then 
         // for each trace we count the freq of each Arcs, which means we need to build one freq for Arcs
         for(int i=0; i<variants.size(); i++) {
         	initPlaceAttribute(places);
@@ -150,7 +150,7 @@ public class ReplayPlaces {
 		// Whatever we don't need actually the map from Place to its Frequency.
 		int curCount  = traceVariant.getCount();
 		List<Transition> seq = getTraceSeq(traceVariant, transMap);
-		
+	    
     	Transition transition = null;
     	Arc arc = null;
     	Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> preset = null;
@@ -160,9 +160,15 @@ public class ReplayPlaces {
     	// set a token at first place... Na, we need to check it from another code
     	Place splace = NetUtilities.getStartPlace(net);
     	splace.getAttributeMap().put("token", 1);
-    	// the token at first place could remain..
-    	// boolean fit = true;
-		// first transition if it connects the initial place
+    	// if the first event doesn't connect to splace, so we define the place bad ones..
+    	Place eplace = NetUtilities.getEndPlace(net);
+    	
+    	transition = seq.get(0);
+    	if(net.getArc(splace, transition) == null) {
+    		// there exists no connection from first event to start place, so splace is bad
+    		splace.getAttributeMap().put("isBad", true);
+    	}
+    	
     	for(int i=0; i< seq.size(); i++) {
 			// we check from the second element in the sequence and then compare the elements at previous places
 			// one benefit maybe record if connections at one place is single ?? 
@@ -179,6 +185,23 @@ public class ReplayPlaces {
 				int tnum = (Integer)p.getAttributeMap().get("token");
 				if(!(tnum == 1 && !(boolean) p.getAttributeMap().get("isBad"))) {
 					p.getAttributeMap().put("isBad", true);	
+					// now it misses one token, we check if this place has some silent transitions leads to it 
+					// collection<Transition,Node> I prefer Node get 
+					// silentNodes = getSilentNodes(place);
+					// if it's empty, so we mark place bad,
+					// if not, we begin to check one node 
+					//  this node has places before, while it finds one token there, 
+					// this place is fine, so no token is missing
+					// no token, check the place has silent nodes, if so trace back
+					// if not we choose other ones.. 
+					/*
+					Collection<PetrinetNode> silentNodes = findSilentNodes(p, net);
+					if(silentNodes.size() == 0) {
+						p.getAttributeMap().put("isBad", true);
+					}else {
+						
+					}
+					*/
 				}
 				p.getAttributeMap().put("token", tnum -1 < 0 ? 0:tnum -1);
 			}
@@ -191,16 +214,25 @@ public class ReplayPlaces {
 				arc = (Arc) edge;
 				// get the prior place for transition
 				Place p= (Place) arc.getTarget();
+				if(p.equals(eplace) && i < seq.size()-1) {
+					p.getAttributeMap().put("isBad", true);	
+				}
 				p.getAttributeMap().put("token", (Integer)p.getAttributeMap().get("token") + 1);
 			}
 			
 		}
     	// do we consider about the last token?? Actually we don't consider it, also should we kind of remove the added attribute??
     	// token based, we need to have such transition..
-    	splace = NetUtilities.getEndPlace(net);
-    	// it lacks token, so problem here
-    	int tnum = (Integer)splace.getAttributeMap().get("token");
-    	splace.getAttributeMap().put("token", tnum -1);
+    	// Place eplace = NetUtilities.getEndPlace(net);
+    	// it lacks token, so problem here, if end transition happens twice, so we have remaning token, it's fine
+        // but what about the end transition happens once and then other left to execute it ?? 
+    	// anyway if it is the end transition, it goes to end, let me see other situation.. 
+    	// how about the silent transition in the model???  We shoud discover it...
+    	// if we just accept the trace with only concrete transiton, so how about place with silent transiton?? 
+    	// we get the token in the next place, and then goes into the model, 
+    	// if 
+    	int tnum = (Integer)eplace.getAttributeMap().get("token");
+    	eplace.getAttributeMap().put("token", tnum -1);
     	
     	// then after this trace, how to count the unFitNum of place?? 
 		// if it is missing, we count it directly, but if token remains, we see it unfit ???
@@ -217,6 +249,23 @@ public class ReplayPlaces {
 		
 	}
 
+	public static Collection<PetrinetNode> findSilentNodes(Place p,Petrinet net) {
+		// how to find the previus transition of one place
+		Collection<PetrinetNode>  result = new HashSet<>();
+		
+		Collection<Transition> nodes = net.getTransitions();
+		Iterator piter = nodes.iterator();
+		while(piter.hasNext()) {
+			Transition node = (Transition) piter.next();
+			if(node.isInvisible() && net.getArc(node, p) != null ) {
+				// how to set the Label for silent transiton in Petri net
+				result.add(node);
+			}
+		}
+		
+		return result;
+	}
+	
 	public static void initPlaceFreq(Collection<Place> places) {
 		Iterator piter = places.iterator();
 		while(piter.hasNext()) {
@@ -242,7 +291,7 @@ public class ReplayPlaces {
 	
 	
 	private static List<Transition> getTraceSeq(TraceVariant traceVariant, Map<XEventClass, Transition> transMap) {
-		// TODO Auto-generated method stub
+		// Could we do it maybe a way directly to get it and not show it here.
 		List<XEventClass> traceSeq = traceVariant.getTraceVariant();
 		List<Transition> seq = new ArrayList<Transition>();
 		for(XEventClass eventClass : traceSeq) {
