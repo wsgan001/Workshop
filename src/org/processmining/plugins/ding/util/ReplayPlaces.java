@@ -152,7 +152,7 @@ public class ReplayPlaces {
 		List<Transition> seq = getTraceSeq(traceVariant, transMap);
 	    
     	Transition transition = null;
-    	Arc arc = null;
+    	Arc arc= null;
     	Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> preset = null;
     	Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> postset = null;
     	
@@ -180,30 +180,16 @@ public class ReplayPlaces {
 				arc = (Arc) edge;
 				// get the prior place for transition
 				Place p= (Place) arc.getSource();
-				// we can't make sure all the events show in an order. So if it doesn't, then 
-				// not enough token in one place before transition
 				int tnum = (Integer)p.getAttributeMap().get("token");
-				if(!(tnum == 1 && !(boolean) p.getAttributeMap().get("isBad"))) {
-					p.getAttributeMap().put("isBad", true);	
-					// now it misses one token, we check if this place has some silent transitions leads to it 
-					// collection<Transition,Node> I prefer Node get 
-					// silentNodes = getSilentNodes(place);
-					// if it's empty, so we mark place bad,
-					// if not, we begin to check one node 
-					//  this node has places before, while it finds one token there, 
-					// this place is fine, so no token is missing
-					// no token, check the place has silent nodes, if so trace back
-					// if not we choose other ones.. 
-					/*
-					Collection<PetrinetNode> silentNodes = findSilentNodes(p, net);
-					if(silentNodes.size() == 0) {
-						p.getAttributeMap().put("isBad", true);
-					}else {
-						
+				if(tnum==1) {
+					p.getAttributeMap().put("token", tnum -1 < 0 ? 0:tnum -1);
+				}else {
+					// we can't make sure all the events show in an order. So if it doesn't, then 
+					// not enough token in one place before transition
+					if(isSilentMissing(p, net)) {
+						p.getAttributeMap().put("isBad", true);	
 					}
-					*/
 				}
-				p.getAttributeMap().put("token", tnum -1 < 0 ? 0:tnum -1);
 			}
 			
 			// we need to generate the token for the next places
@@ -221,18 +207,18 @@ public class ReplayPlaces {
 			}
 			
 		}
-    	// do we consider about the last token?? Actually we don't consider it, also should we kind of remove the added attribute??
-    	// token based, we need to have such transition..
-    	// Place eplace = NetUtilities.getEndPlace(net);
-    	// it lacks token, so problem here, if end transition happens twice, so we have remaning token, it's fine
-        // but what about the end transition happens once and then other left to execute it ?? 
-    	// anyway if it is the end transition, it goes to end, let me see other situation.. 
-    	// how about the silent transition in the model???  We shoud discover it...
-    	// if we just accept the trace with only concrete transiton, so how about place with silent transiton?? 
-    	// we get the token in the next place, and then goes into the model, 
-    	// if 
+    	// what about the end transition is empty, for this mdoel, we can't really 
+    	// see the last event, so we go from the last transition and then to end place
+    	// if there is one silent path from last transition,then it's fine, but if the last one is not 
+    	// not what we expected, it gets wrong in the last place.. Whatevet silent transition, or not
     	int tnum = (Integer)eplace.getAttributeMap().get("token");
-    	eplace.getAttributeMap().put("token", tnum -1);
+    	if(tnum == 1 && !(boolean) eplace.getAttributeMap().get("isBad")) {
+    		eplace.getAttributeMap().put("token", tnum -1);
+    	}else {
+        	if(isSilentMissing(eplace, net)) {
+        		eplace.getAttributeMap().put("isBad", true);	
+        	}
+    	}
     	
     	// then after this trace, how to count the unFitNum of place?? 
 		// if it is missing, we count it directly, but if token remains, we see it unfit ???
@@ -247,6 +233,56 @@ public class ReplayPlaces {
 			}
 		}
 		
+	}
+	
+	public static boolean isSilentMissing(Place p, Petrinet net) {
+		// anyway it check all the place to see if it misses sth.
+		// in this net there is already included token there
+		// now it misses one token, we check if this place has some silent transitions leads to it 
+		// collection<Transition,Node> I prefer Node get 
+		// silentNodes = getSilentNodes(place);
+		// if it's empty, so we mark place bad,
+		// if not, we begin to check one node 
+		//  this node has places before, while it finds one token there, 
+		// this place is fine, so no token is missing
+		// no token, check the place has silent nodes, if so trace back
+		// if not we choose other ones.. 
+    	Arc arc= null;
+		// if trace back to the silent transition.
+		Collection<PetrinetNode> silentNodes = findSilentNodes(p, net);
+		if(silentNodes.size() == 0) {
+			return true;
+		}else {
+			Iterator<PetrinetNode> niter = silentNodes.iterator();
+			
+			while(niter.hasNext()) {
+				// find the path until the place with token or, without silent transition
+				PetrinetNode node = niter.next();
+				Collection<PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode>> spreset = net.getInEdges(node);
+				// we need to see two transitions together???  
+				for (PetrinetEdge<? extends PetrinetNode, ? extends PetrinetNode> sedge : spreset) {
+					arc = (Arc) sedge;
+					// get the prior place for transition
+					Place sp= (Place) arc.getSource();
+					// we can't make sure all the events show in an order. So if it doesn't, then 
+					// not enough token in one place before transition
+					int tnum = (Integer)sp.getAttributeMap().get("token");
+					
+					if(tnum == 0 ) {
+						// go back to check the place before and see if works
+						return isSilentMissing(sp, net); 
+					}
+					
+					if(tnum == 1 ) {
+						sp.getAttributeMap().put("token", tnum -1);
+						// it shoud be for all edges , not only for one, so here we need to change it 
+					}
+				}
+			}
+			
+		}
+		// after we traverse all the silent transition, still no answer it mean it is false
+		return false;
 	}
 
 	public static Collection<PetrinetNode> findSilentNodes(Place p,Petrinet net) {
