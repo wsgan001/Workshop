@@ -1,15 +1,25 @@
 package org.processmining.plugins.ding;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
+import org.deckfour.xes.classification.XEventClass;
 import org.deckfour.xes.classification.XEventClassifier;
+import org.deckfour.xes.info.XLogInfo;
 import org.processmining.alphaminer.parameters.AlphaMinerParameters;
+import org.processmining.models.graphbased.directed.petrinet.Petrinet;
+import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
+import org.processmining.plugins.ding.util.TraceVariant;
 
 /**
  * Parameters for the mining of a workshop model from an event log.
- * 
- * @author hverbeek
+ *  ----Event Log files 
+ *  –  threshold for filtering event log
+	–- filtering type
+	---traceNum 
+	–- Generated Petrinet 
+	---threshold for replay filtering
+ * @author kefang ding
  * 
  */
 public class FilteringParameters {
@@ -33,21 +43,29 @@ public class FilteringParameters {
 	 */
 	
 	private String filterType; 
-	private double threshold ; 
-	private boolean no_petrinet = true;
-	private boolean saveFile = false;
-	private ArrayList<String> saveFileList ; 
+	private double threshold ;
+	private int variantNum;
 	
 	private AlphaMinerParameters alphaParas;
 	XEventClassifier eventClassifier ;
+	
+	// to create a map connecting Eventlog and Petri net
+	Map<XEventClass, Transition> map ;
+	XLogInfo info;
+	List<TraceVariant> variants;
 
+
+	
+	private Petrinet net;
+	int traceNum;
+	double replayThreshold;
+	
 	/**
 	 * Create default parameter values.
 	 */
 	public FilteringParameters() {
 		filterType = new String("Variant Over One ThresHold");
 		threshold = 0.1; 
-		saveFile = false;
 	}
 	
 	public FilteringParameters(String filterType,double threshold, AlphaMinerParameters alphaParas ) {
@@ -56,9 +74,46 @@ public class FilteringParameters {
 		this.alphaParas = alphaParas;
 	}
 	
-	
-	
+	public Map<XEventClass, Transition> getMap() {
+		return map;
+	}
 
+	public void setMap(Map<XEventClass, Transition> map) {
+		this.map = map;
+		// how to generate it ?? We need information from AlphaMinerParameters and find its classes
+	}
+	public List<TraceVariant> getVariants() {
+		return variants;
+	}
+
+	public void setVariants(List<TraceVariant> variants) {
+		this.variants = variants;
+	}
+
+	public XLogInfo getInfo() {
+		return info;
+	}
+
+	public void setInfo(XLogInfo info) {
+		this.info = info;
+	}
+	
+	public double getReplayThreshold() {
+		return replayThreshold;
+	}
+	
+	public void setReplayThreshold(double replayThreshold) {
+		this.replayThreshold = replayThreshold;
+	}
+	
+	public int getTraceNum() {
+		// TODO Auto-generated method stub
+		return traceNum;
+	}
+	
+	public void setTraceNum(int traceNum) {
+		this.traceNum = traceNum;
+	}
 	/**
 	 * Set the classifier to the given classifier.
 	 * 
@@ -72,39 +127,23 @@ public class FilteringParameters {
 		}
 	}
 	
+	public Object[] getFilter() {
+		return new Object[] {filterType, threshold};
+	}
+	
 	public void setFilterType(String filterType) {
 		if (filterType != null) {
 			this.filterType = filterType;
 		}
 	}
 	
-	public void setPetrinetStatus() {
-		this.no_petrinet = false;
-	}
 	
 	public void setFilterValue( double threshold) {
 		this.threshold = threshold;
 	}
 	
-	public void setSaveList(List slist) {
-		this.saveFileList = new ArrayList<String>(slist);
-	
-	}
-	public void setSaveList(String fname) {
-		this.saveFileList = new ArrayList<String>();
-		this.saveFileList.add(fname);
-	}
-	
-	public void setSaveFile() {
-		this.saveFile = true;
-	}
-	
 	public void setAlphaParameters(AlphaMinerParameters alphaParas) {
-		if(! no_petrinet) {
-			this.alphaParas = alphaParas;
-		}else {
-			this.alphaParas = null;
-		}
+		this.alphaParas = alphaParas;
 	}
 
 	public void setEventClassifier(XEventClassifier eventClassifier) {
@@ -124,25 +163,16 @@ public class FilteringParameters {
 		return filterType;
 	}
 	
-	public String  getSaveFileName(){
-		return (String)saveFileList.get(0);
-	}
 	
 	public double getThreshold() {
 		return threshold;
 	}
 	
+	
 	public AlphaMinerParameters getAlphaMinerParameters() {
 		return alphaParas;
 	}
 	
-	public boolean isNoPetrinet() {
-		return no_petrinet;
-	}
-	
-	public boolean isSaveFile (){
-		return saveFile;
-	}
 	/**
 	 * Returns whether these parameter values are equal to the given parameter
 	 * values.
@@ -169,5 +199,20 @@ public class FilteringParameters {
 		return filterType.hashCode();
 	}
 
+	public int getVariantNum() {
+		return variantNum;
+	}
+
+	public void setVariantNum(int variantNum) {
+		this.variantNum = variantNum;
+	}
+
+	public Petrinet getNet() {
+		return net;
+	}
+
+	public void setNet(Petrinet net) {
+		this.net = net;
+	}
 
 }

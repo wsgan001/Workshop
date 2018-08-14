@@ -1,11 +1,10 @@
-package org.processmining.plugins.ding;
+package org.processmining.plugins.ding.util;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -19,8 +18,8 @@ import org.deckfour.xes.model.XTrace;
 import org.deckfour.xes.out.XSerializer;
 import org.deckfour.xes.out.XesXmlSerializer;
 import org.processmining.models.graphbased.AttributeMap;
-import org.processmining.models.graphbased.directed.petrinet.elements.Place;
 import org.processmining.models.graphbased.directed.petrinet.elements.Transition;
+import org.processmining.plugins.ding.FilteringParameters;
 
 /**
  * This class includes the basic information about Event log 
@@ -31,17 +30,21 @@ import org.processmining.models.graphbased.directed.petrinet.elements.Transition
 public class EventLogUtilities {
 
 	
-	public static List<TraceVariant> getTraceVariants( XLog log) {
+	public static List<TraceVariant> getTraceVariants( XLog log, FilteringParameters parameters) {
 		// TODO Auto-generated method stub
 		
 		List<TraceVariant> variants = new ArrayList<TraceVariant>();
-		XLogInfo info  = XLogInfoFactory.createLogInfo(log); //
+		if(parameters.getInfo() == null) {
+		      parameters.setInfo(XLogInfoFactory.createLogInfo(log)); //
+		}
+		
+		XLogInfo info = parameters.getInfo();
 		XEventClass eventClass = null;
 		for (XTrace trace : log) {
 				
 				List<XEventClass> toTraceClass = new ArrayList<XEventClass>();
 				for (XEvent toEvent : trace) {
-					eventClass = info.getEventClasses().getClassOf(toEvent);
+					eventClass = info.getEventClasses(parameters.getEventClassifier()).getClassOf(toEvent);
 					toTraceClass.add(eventClass);	
 				}
 				
@@ -71,38 +74,13 @@ public class EventLogUtilities {
 		Map<XEventClass, Transition> map = new HashMap<XEventClass, Transition>();
 		
 		for (Transition transition : transitions) {
-			boolean visible=false;
 			for (XEventClass eventClass : classes.getClasses()) {
 				if (eventClass.getId().equals(transition.getAttributeMap().get(AttributeMap.LABEL))) {
 					map.put(eventClass, transition);
-					visible=true;
 				}
-			}
-			if(!visible){
-				transition.setInvisible(true);
 			}
 		}
 		return map;
-	}
-
-	public static Map<Place, Place> getPlaceMap(Collection<Place> fromPlaces, Collection<Place> toPlaces) {
-		// create a Place Map from clonable Petri net and see if it works
-		Map<Place, Place> placeMap = new HashMap<Place, Place>();
-		Iterator fiter = fromPlaces.iterator();
-		Iterator titer ;
-		Place fromP, toP;
-		while(fiter.hasNext()) {
-			fromP = (Place)fiter.next();
-			titer = toPlaces.iterator();
-			while(titer.hasNext()) {
-				toP = (Place)titer.next();
-				if(fromP.getLabel().equals(toP.getLabel())) {
-					placeMap.put(fromP, toP);
-					break;
-				}
-			}
-		}
-		return placeMap;
 	}
    
 	public static void exportSingleLog(XLog log, String targetName) throws IOException {
@@ -111,4 +89,6 @@ public class EventLogUtilities {
 		logSerializer.serialize(log, out);
 		out.close();
 	}
+	
+	
 }
